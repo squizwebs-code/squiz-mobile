@@ -141,7 +141,7 @@ class _AuthPageState extends State<AuthPage> {
                 AnimatedSize(
                   duration: Motion.d(context, 200),
                   child: _error == null
-                      ? const SizedBox(width: double.infinity)
+                      ? const SizedBox.shrink()
                       : Container(
                           margin: const EdgeInsets.only(top: 16),
                           padding: const EdgeInsets.all(12),
