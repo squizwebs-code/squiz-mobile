@@ -10,7 +10,13 @@ from app.db import Base
 config = context.config
 if config.config_file_name:
     fileConfig(config.config_file_name)
-config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
+
+# Safely fetch database URL and ensure compatibility with Render's 'postgres://' scheme
+db_url = get_settings().database_url
+if db_url and db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+config.set_main_option("sqlalchemy.url", db_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
 
