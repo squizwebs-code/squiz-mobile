@@ -82,94 +82,192 @@ class _AuthPageState extends State<AuthPage> {
   Widget build(BuildContext context) {
     final cs = context.cs;
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
             child: Form(
               key: _form,
-              child: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 32), children: [
-                Text(_register ? 'Create your account' : 'Welcome back', style: context.tt.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 6),
-                Text(_register ? 'Your progress is saved and follows you to any phone.' : 'Sign in to bring your progress with you.', style: context.tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-                const SizedBox(height: 24),
-                if (_register || !_needPhone)
-                  TextFormField(
-                    controller: _name,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.name],
-                    decoration: InputDecoration(labelText: _register ? 'Full name' : 'Full name or phone number', prefixIcon: const Icon(Icons.person_outline_rounded)),
-                    validator: _register ? validateName : (v) => (v ?? '').trim().isEmpty ? 'Enter your name or phone number' : null,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                children: [
+                  // App branding header icon or badge
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(
+                      _register ? Icons.person_add_rounded : Icons.lock_open_rounded,
+                      color: cs.primary,
+                      size: 28,
+                    ),
                   ),
-                if (_register || _needPhone) ...[
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _phone,
-                    keyboardType: TextInputType.phone,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.telephoneNumber],
-                    decoration: const InputDecoration(labelText: 'Phone number', prefixIcon: Icon(Icons.phone_outlined)),
-                    validator: validatePhone,
+                  const SizedBox(height: 20),
+                  Text(
+                    _register ? 'Create your account' : 'Welcome back',
+                    style: context.tt.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                ],
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _pass,
-                  obscureText: _hide,
-                  textInputAction: _register ? TextInputAction.next : TextInputAction.done,
-                  onFieldSubmitted: (_) => _register ? null : _submit(),
-                  autofillHints: [_register ? AutofillHints.newPassword : AutofillHints.password],
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock_outline_rounded),
-                    suffixIcon: IconButton(tooltip: _hide ? 'Show password' : 'Hide password', icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined), onPressed: () => setState(() => _hide = !_hide)),
+                  const SizedBox(height: 6),
+                  Text(
+                    _register 
+                        ? 'Your progress is saved and follows you to any phone.' 
+                        : 'Sign in to bring your progress with you.',
+                    style: context.tt.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      height: 1.4,
+                    ),
                   ),
-                  validator: _register ? validatePassword : (v) => (v ?? '').isEmpty ? 'Enter your password' : null,
-                ),
-                if (_register) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 28),
+
+                  // Form Fields Card Container
+                  if (_register || !_needPhone) ...[
+                    TextFormField(
+                      controller: _name,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.name],
+                      decoration: InputDecoration(
+                        labelText: _register ? 'Full name' : 'Full name or phone number',
+                        prefixIcon: const Icon(Icons.person_outline_rounded),
+                        filled: true,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      ),
+                      validator: _register ? validateName : (v) => (v ?? '').trim().isEmpty ? 'Enter your name or phone number' : null,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (_register || _needPhone) ...[
+                    TextFormField(
+                      controller: _phone,
+                      keyboardType: TextInputType.phone,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.telephoneNumber],
+                      decoration: InputDecoration(
+                        labelText: 'Phone number',
+                        prefixIcon: const Icon(Icons.phone_outlined),
+                        filled: true,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      ),
+                      validator: validatePhone,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   TextFormField(
-                    controller: _confirm,
+                    controller: _pass,
                     obscureText: _hide,
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _submit(),
-                    decoration: const InputDecoration(labelText: 'Confirm password', prefixIcon: Icon(Icons.lock_outline_rounded)),
-                    validator: (v) => v != _pass.text ? 'Passwords do not match' : null,
+                    textInputAction: _register ? TextInputAction.next : TextInputAction.done,
+                    onFieldSubmitted: (_) => _register ? null : _submit(),
+                    autofillHints: [_register ? AutofillHints.newPassword : AutofillHints.password],
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                      filled: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      suffixIcon: IconButton(
+                        tooltip: _hide ? 'Show password' : 'Hide password',
+                        icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        onPressed: () => setState(() => _hide = !_hide),
+                      ),
+                    ),
+                    validator: _register ? validatePassword : (v) => (v ?? '').isEmpty ? 'Enter your password' : null,
+                  ),
+
+                  if (_register) ...[
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _confirm,
+                      obscureText: _hide,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _submit(),
+                      decoration: InputDecoration(
+                        labelText: 'Confirm password',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        filled: true,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      ),
+                      validator: (v) => v != _pass.text ? 'Passwords do not match' : null,
+                    ),
+                  ],
+
+                  // Animated Error Banner
+                  AnimatedSize(
+                    duration: Motion.d(context, 200),
+                    child: _error == null
+                        ? const SizedBox.shrink()
+                        : Container(
+                            margin: const EdgeInsets.only(top: 20),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: context.sq.bad.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: context.sq.bad.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.error_outline_rounded, color: context.sq.bad, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _error!,
+                                    style: context.tt.bodyMedium?.copyWith(color: context.sq.bad),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Action Button
+                  SizedBox(
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _busy ? null : _submit,
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: _busy
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                            )
+                          : Text(
+                              _register ? 'Create account' : 'Sign in',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Switch Mode Toggle Button
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() {
+                              _register = !_register;
+                              _error = null;
+                              _needPhone = false;
+                            }),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      _register ? 'I already have an account' : 'New here? Create an account',
+                      style: TextStyle(fontWeight: FontWeight.w600, color: cs.primary),
+                    ),
                   ),
                 ],
-                AnimatedSize(
-                  duration: Motion.d(context, 200),
-                  child: _error == null
-                      ? const SizedBox.shrink()
-                      : Container(
-                          margin: const EdgeInsets.only(top: 16),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: context.sq.bad.withValues(alpha: .12), borderRadius: BorderRadius.circular(12)),
-                          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Icon(Icons.error_outline_rounded, color: context.sq.bad, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(_error!, style: context.tt.bodyMedium)),
-                          ]),
-                        ),
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _busy ? null : _submit,
-                  child: _busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2.5)) : Text(_register ? 'Create account' : 'Sign in'),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: _busy
-                      ? null
-                      : () => setState(() {
-                            _register = !_register;
-                            _error = null;
-                            _needPhone = false;
-                          }),
-                  child: Text(_register ? 'I already have an account' : 'New here? Create an account'),
-                ),
-              ]),
+              ),
             ),
           ),
         ),
@@ -227,19 +325,80 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       child: Scaffold(
         appBar: AppBar(title: const Text('Change password'), automaticallyImplyLeading: !widget.forced),
         body: SafeArea(
-          child: Form(
-            key: _form,
-            child: ListView(padding: const EdgeInsets.all(24), children: [
-              if (widget.forced) Padding(padding: const EdgeInsets.only(bottom: 16), child: Text('You must choose a new password before continuing.', style: context.tt.bodyMedium)),
-              TextFormField(controller: _cur, obscureText: true, decoration: const InputDecoration(labelText: 'Current password'), validator: (v) => (v ?? '').isEmpty ? 'Enter your current password' : null),
-              const SizedBox(height: 14),
-              TextFormField(controller: _new, obscureText: true, decoration: const InputDecoration(labelText: 'New password'), validator: validatePassword),
-              const SizedBox(height: 14),
-              TextFormField(controller: _conf, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm new password'), validator: (v) => v != _new.text ? 'Passwords do not match' : null),
-              if (_error != null) Padding(padding: const EdgeInsets.only(top: 14), child: Text(_error!, style: TextStyle(color: context.sq.bad))),
-              const SizedBox(height: 24),
-              FilledButton(onPressed: _busy ? null : _save, child: _busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2.5)) : const Text('Save password')),
-            ]),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Form(
+                key: _form,
+                child: ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    if (widget.forced)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: Text(
+                          'You must choose a new password before continuing.',
+                          style: context.tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    TextFormField(
+                      controller: _cur,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Current password',
+                        filled: true,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      ),
+                      validator: (v) => (v ?? '').isEmpty ? 'Enter your current password' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _new,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'New password',
+                        filled: true,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      ),
+                      validator: validatePassword,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _conf,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Confirm new password',
+                        filled: true,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      ),
+                      validator: (v) => v != _new.text ? 'Passwords do not match' : null,
+                    ),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(_error!, style: TextStyle(color: context.sq.bad)),
+                      ),
+                    const SizedBox(height: 28),
+                    SizedBox(
+                      height: 52,
+                      child: FilledButton(
+                        onPressed: _busy ? null : _save,
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: _busy
+                            ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                              )
+                            : const Text('Save password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
