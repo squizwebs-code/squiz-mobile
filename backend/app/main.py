@@ -117,6 +117,7 @@ def create_app() -> FastAPI:
         )
 
     @app.get("/health", tags=["meta"])
+    @app.head("/health", tags=["meta"])
     def health():
         return {"status": "ok"}
 
