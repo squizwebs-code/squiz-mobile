@@ -121,6 +121,16 @@ def create_app() -> FastAPI:
     def health():
         return {"status": "ok"}
 
+    @app.on_event("startup")
+    def on_startup():
+        try:
+            from .db import Base, engine
+            actual_engine = engine() if callable(engine) else engine
+            Base.metadata.create_all(bind=actual_engine)
+            log.info("Database tables verified/created successfully on startup.")
+        except Exception as e:
+            log.exception("Failed to create database tables on startup: %s", e)
+
     for r in (
         auth.router,
         content.router,
