@@ -15,52 +15,75 @@ String? validatePhone(String? v) {
 
 String? validatePassword(String? v) {
   final s = v ?? '';
-  if (s.length < 8) return 'At least 8 characters';
-  if (!RegExp(r'[A-Za-z]').hasMatch(s) || !RegExp(r'\d').hasMatch(s)) return 'Use letters and numbers';
+  if (s.length < 8) return 'Password must be at least 8 characters';
+  if (!RegExp(r'[A-Za-z]').hasMatch(s) || !RegExp(r'\d').hasMatch(s)) return 'Include both letters and numbers';
   return null;
 }
 
-/// Sign in or create an account. Accounts are always student accounts; the app never sends a role.
+/// Professional Sign in and Registration Page
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key, this.startWithRegister = false});
   final bool startWithRegister;
+
   @override
   State<AuthPage> createState() => _AuthPageState();
 }
 
 class _AuthPageState extends State<AuthPage> {
-  final _form = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
   late bool _register = widget.startWithRegister;
-  final _name = TextEditingController(), _phone = TextEditingController(), _pass = TextEditingController(), _confirm = TextEditingController();
-  bool _busy = false, _hide = true, _needPhone = false;
-  String? _error;
+  
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
+
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _needPhone = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    for (final c in [_name, _phone, _pass, _confirm]) {
-      c.dispose();
-    }
+    _nameController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  Future<void> _handleSubmit() async {
     FocusScope.of(context).unfocus();
-    if (!_form.currentState!.validate()) return;
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
     final app = AppScope.read(context);
     final nav = Navigator.of(context);
+
     setState(() {
-      _busy = true;
-      _error = null;
+      _isLoading = true;
+      _errorMessage = null;
     });
+
     try {
       if (_register) {
-        await app.register(_name.text.trim(), _phone.text.trim(), _pass.text, _confirm.text);
+        await app.register(
+          _nameController.text.trim(),
+          _phoneController.text.trim(),
+          _passwordController.text,
+          _confirmController.text,
+        );
       } else {
-        await app.signIn(_needPhone ? _phone.text.trim() : _name.text.trim(), _pass.text);
+        await app.signIn(
+          _needPhone ? _phoneController.text.trim() : _nameController.text.trim(),
+          _passwordController.text,
+        );
       }
+
       if (!mounted) return;
       if (app.user?.mustChangePassword == true) {
-        await nav.push(MaterialPageRoute<void>(builder: (_) => const ChangePasswordPage(forced: true)));
+        await nav.push(MaterialPageRoute<void>(
+          builder: (_) => const ChangePasswordPage(forced: true),
+        ));
       }
       if (mounted) nav.popUntil((r) => r.isFirst);
     } on ApiException catch (e) {
@@ -68,13 +91,15 @@ class _AuthPageState extends State<AuthPage> {
       setState(() {
         if (e.code == 'ambiguous_name') {
           _needPhone = true;
-          _error = 'More than one student has that name. Sign in with your phone number instead.';
+          _errorMessage = 'Multiple students share this name. Please sign in using your phone number.';
         } else {
-          _error = e.offline ? 'No connection. You can keep practising offline and sign in later.' : e.message;
+          _errorMessage = e.offline
+              ? 'No internet connection. You can practice offline and sign in later.'
+              : e.message;
         }
       });
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -82,75 +107,149 @@ class _AuthPageState extends State<AuthPage> {
   Widget build(BuildContext context) {
     final cs = context.cs;
     return Scaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: const BackButton(),
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
+            constraints: const BoxConstraints(maxWidth: 440),
             child: Form(
-              key: _form,
+              key: _formKey,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 children: [
-                  // App branding header icon or badge
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(
-                      _register ? Icons.person_add_rounded : Icons.lock_open_rounded,
-                      color: cs.primary,
-                      size: 28,
+                  // App Branding / Header Icon
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _register ? Icons.person_add_rounded : Icons.lock_person_rounded,
+                        size: 32,
+                        color: cs.primary,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
+                  
+                  // Title Header
                   Text(
-                    _register ? 'Create your account' : 'Welcome back',
+                    _register ? 'Create Account' : 'Welcome Back',
+                    textAlign: TextAlign.center,
                     style: context.tt.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.5,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Text(
-                    _register 
-                        ? 'Your progress is saved and follows you to any phone.' 
-                        : 'Sign in to bring your progress with you.',
-                    style: context.tt.bodyMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      height: 1.4,
-                    ),
+                    _register
+                        ? 'Sign up to sync and back up your learning progress'
+                        : 'Sign in to access your saved quizzes and stats',
+                    textAlign: TextAlign.center,
+                    style: context.tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   const SizedBox(height: 28),
 
-                  // Form Fields Card Container
+                  // Standard Segmented Tab Switcher (Sign In vs Register)
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              _register = false;
+                              _errorMessage = null;
+                              _needPhone = false;
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: !_register ? cs.surface : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: !_register
+                                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))]
+                                    : [],
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Sign In',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: !_register ? cs.primary : cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              _register = true;
+                              _errorMessage = null;
+                              _needPhone = false;
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _register ? cs.surface : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: _register
+                                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))]
+                                    : [],
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Register',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: _register ? cs.primary : cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Form Fields
                   if (_register || !_needPhone) ...[
                     TextFormField(
-                      controller: _name,
+                      controller: _nameController,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.name],
                       decoration: InputDecoration(
-                        labelText: _register ? 'Full name' : 'Full name or phone number',
+                        labelText: _register ? 'Full Name' : 'Full Name or Phone Number',
                         prefixIcon: const Icon(Icons.person_outline_rounded),
                         filled: true,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                       ),
-                      validator: _register ? validateName : (v) => (v ?? '').trim().isEmpty ? 'Enter your name or phone number' : null,
+                      validator: _register ? validateName : (v) => (v ?? '').trim().isEmpty ? 'Field cannot be empty' : null,
                     ),
                     const SizedBox(height: 16),
                   ],
 
                   if (_register || _needPhone) ...[
                     TextFormField(
-                      controller: _phone,
+                      controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.telephoneNumber],
                       decoration: InputDecoration(
-                        labelText: 'Phone number',
+                        labelText: 'Phone Number',
                         prefixIcon: const Icon(Icons.phone_outlined),
                         filled: true,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
@@ -161,10 +260,10 @@ class _AuthPageState extends State<AuthPage> {
                   ],
 
                   TextFormField(
-                    controller: _pass,
-                    obscureText: _hide,
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
                     textInputAction: _register ? TextInputAction.next : TextInputAction.done,
-                    onFieldSubmitted: (_) => _register ? null : _submit(),
+                    onFieldSubmitted: (_) => _register ? null : _handleSubmit(),
                     autofillHints: [_register ? AutofillHints.newPassword : AutofillHints.password],
                     decoration: InputDecoration(
                       labelText: 'Password',
@@ -172,9 +271,8 @@ class _AuthPageState extends State<AuthPage> {
                       filled: true,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                       suffixIcon: IconButton(
-                        tooltip: _hide ? 'Show password' : 'Hide password',
-                        icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                        onPressed: () => setState(() => _hide = !_hide),
+                        icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
                     validator: _register ? validatePassword : (v) => (v ?? '').isEmpty ? 'Enter your password' : null,
@@ -183,89 +281,90 @@ class _AuthPageState extends State<AuthPage> {
                   if (_register) ...[
                     const SizedBox(height: 16),
                     TextFormField(
-                      controller: _confirm,
-                      obscureText: _hide,
+                      controller: _confirmController,
+                      obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _submit(),
+                      onFieldSubmitted: (_) => _handleSubmit(),
                       decoration: InputDecoration(
-                        labelText: 'Confirm password',
+                        labelText: 'Confirm Password',
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         filled: true,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                       ),
-                      validator: (v) => v != _pass.text ? 'Passwords do not match' : null,
+                      validator: (v) => v != _passwordController.text ? 'Passwords do not match' : null,
                     ),
                   ],
 
-                  // Animated Error Banner
+                  // Forgot Password Link (Sign In view only)
+                  if (!_register)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          // Standard recovery action placeholder
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Contact administration to reset your credentials.')),
+                          );
+                        },
+                        child: Text('Forgot Password?', style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+
+                  // Error Display Banner
                   AnimatedSize(
                     duration: Motion.d(context, 200),
-                    child: _error == null
+                    child: _errorMessage == null
                         ? const SizedBox.shrink()
                         : Container(
-                            margin: const EdgeInsets.only(top: 20),
-                            padding: const EdgeInsets.all(14),
+                            margin: const EdgeInsets.only(top: 16),
+                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: context.sq.bad.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(14),
+                              color: context.sq.bad.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: context.sq.bad.withValues(alpha: 0.3)),
                             ),
                             child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Icon(Icons.error_outline_rounded, color: context.sq.bad, size: 20),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: Text(
-                                    _error!,
-                                    style: context.tt.bodyMedium?.copyWith(color: context.sq.bad),
-                                  ),
+                                  child: Text(_errorMessage!, style: TextStyle(color: context.sq.bad, fontSize: 13)),
                                 ),
                               ],
                             ),
                           ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
-                  // Action Button
+                  // Primary Submit Button
                   SizedBox(
                     height: 52,
                     child: FilledButton(
-                      onPressed: _busy ? null : _submit,
+                      onPressed: _isLoading ? null : _handleSubmit,
                       style: FilledButton.styleFrom(
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
-                      child: _busy
+                      child: _isLoading
                           ? const SizedBox(
                               height: 22,
                               width: 22,
                               child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                             )
                           : Text(
-                              _register ? 'Create account' : 'Sign in',
+                              _register ? 'Create Account' : 'Sign In',
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
-                  // Switch Mode Toggle Button
-                  TextButton(
-                    onPressed: _busy
-                        ? null
-                        : () => setState(() {
-                              _register = !_register;
-                              _error = null;
-                              _needPhone = false;
-                            }),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                  // Legal Disclaimer Footer (Register view only)
+                  if (_register)
+                    Text(
+                      'By creating an account, you agree to follow standard examination policies and student data guidelines.',
+                      textAlign: TextAlign.center,
+                      style: context.tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                     ),
-                    child: Text(
-                      _register ? 'I already have an account' : 'New here? Create an account',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: cs.primary),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -276,45 +375,50 @@ class _AuthPageState extends State<AuthPage> {
   }
 }
 
-/// Used from Profile, and shown automatically when the server says the password must be changed.
+/// Standard Change Password Dialog / Page
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key, this.forced = false});
   final bool forced;
+
   @override
   State<ChangePasswordPage> createState() => _ChangePasswordPageState();
 }
 
 class _ChangePasswordPageState extends State<ChangePasswordPage> {
-  final _form = GlobalKey<FormState>();
-  final _cur = TextEditingController(), _new = TextEditingController(), _conf = TextEditingController();
-  bool _busy = false;
-  String? _error;
+  final _formKey = GlobalKey<FormState>();
+  final _currentController = TextEditingController();
+  final _newController = TextEditingController();
+  final _confirmController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    for (final c in [_cur, _new, _conf]) {
-      c.dispose();
-    }
+    _currentController.dispose();
+    _newController.dispose();
+    _confirmController.dispose();
     super.dispose();
   }
 
-  Future<void> _save() async {
-    if (!_form.currentState!.validate()) return;
+  Future<void> _savePassword() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     final app = AppScope.read(context);
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
+
     setState(() {
-      _busy = true;
-      _error = null;
+      _isLoading = true;
+      _errorMessage = null;
     });
+
     try {
-      await app.changePassword(_cur.text, _new.text);
-      messenger.showSnackBar(const SnackBar(content: Text('Password changed')));
+      await app.changePassword(_currentController.text, _newController.text);
+      messenger.showSnackBar(const SnackBar(content: Text('Password updated successfully')));
       nav.pop();
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.offline ? 'No connection. Try again when you are online.' : e.message);
+      if (mounted) setState(() => _errorMessage = e.offline ? 'No network connection.' : e.message);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -323,13 +427,16 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     return PopScope(
       canPop: !widget.forced,
       child: Scaffold(
-        appBar: AppBar(title: const Text('Change password'), automaticallyImplyLeading: !widget.forced),
+        appBar: AppBar(
+          title: const Text('Change Password'),
+          automaticallyImplyLeading: !widget.forced,
+        ),
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
+              constraints: const BoxConstraints(maxWidth: 440),
               child: Form(
-                key: _form,
+                key: _formKey,
                 child: ListView(
                   padding: const EdgeInsets.all(24),
                   children: [
@@ -337,26 +444,26 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 20),
                         child: Text(
-                          'You must choose a new password before continuing.',
+                          'Your account requires a password update before proceeding.',
                           style: context.tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                         ),
                       ),
                     TextFormField(
-                      controller: _cur,
+                      controller: _currentController,
                       obscureText: true,
                       decoration: InputDecoration(
-                        labelText: 'Current password',
+                        labelText: 'Current Password',
                         filled: true,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                       ),
-                      validator: (v) => (v ?? '').isEmpty ? 'Enter your current password' : null,
+                      validator: (v) => (v ?? '').isEmpty ? 'Enter current password' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
-                      controller: _new,
+                      controller: _newController,
                       obscureText: true,
                       decoration: InputDecoration(
-                        labelText: 'New password',
+                        labelText: 'New Password',
                         filled: true,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                       ),
@@ -364,35 +471,35 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
-                      controller: _conf,
+                      controller: _confirmController,
                       obscureText: true,
                       decoration: InputDecoration(
-                        labelText: 'Confirm new password',
+                        labelText: 'Confirm New Password',
                         filled: true,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                       ),
-                      validator: (v) => v != _new.text ? 'Passwords do not match' : null,
+                      validator: (v) => v != _newController.text ? 'Passwords do not match' : null,
                     ),
-                    if (_error != null)
+                    if (_errorMessage != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 16),
-                        child: Text(_error!, style: TextStyle(color: context.sq.bad)),
+                        child: Text(_errorMessage!, style: TextStyle(color: context.sq.bad)),
                       ),
                     const SizedBox(height: 28),
                     SizedBox(
                       height: 52,
                       child: FilledButton(
-                        onPressed: _busy ? null : _save,
+                        onPressed: _isLoading ? null : _savePassword,
                         style: FilledButton.styleFrom(
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        child: _busy
+                        child: _isLoading
                             ? const SizedBox(
                                 height: 22,
                                 width: 22,
                                 child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                               )
-                            : const Text('Save password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            : const Text('Update Password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
