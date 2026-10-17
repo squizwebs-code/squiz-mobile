@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import get_settings
+from .db import Base, engine
 from .routers import admin, admin_questions, app_sync, auth, content, quiz, student
 
 log = logging.getLogger("squiz")
@@ -25,6 +26,11 @@ Errors always look like `{"error": {"code": "...", "message": "...", "details": 
 def create_app() -> FastAPI:
     cfg = get_settings()
     app = FastAPI(title="SQUIZ API", version="1.0.0", description=DESCRIPTION)
+
+    @app.on_event("startup")
+    def on_startup():
+        # Automatically creates database tables (like 'users') on boot if they don't exist yet
+        Base.metadata.create_all(bind=engine)
 
     if cfg.cors_origin_list:
         app.add_middleware(
