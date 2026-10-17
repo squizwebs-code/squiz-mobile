@@ -7,7 +7,7 @@ import 'models.dart';
 ///   flutter run --dart-define=API_BASE_URL=http://192.168.1.20:8000    (real phone on the same Wi-Fi)
 ///   flutter build apk --release --dart-define=API_BASE_URL=https://api.example.com
 /// Without a reachable server the app still works fully offline; only sign-in and sync need it.
-const String kApiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8000');
+const String kApiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://squiz-a6ow.onrender.com');
 
 class ApiException implements Exception {
   ApiException(this.message, {this.code, this.status, this.offline = false});
