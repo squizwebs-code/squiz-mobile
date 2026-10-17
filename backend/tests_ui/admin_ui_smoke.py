@@ -1,0 +1,30 @@
+from playwright.sync_api import sync_playwright
+errs=[]
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page()
+    pg.on("console", lambda m: errs.append(m.text) if m.type=="error" else None)
+    pg.on("pageerror", lambda e: errs.append(str(e)))
+    pg.goto("http://localhost:8000/admin-ui/")
+    pg.fill("#id","0911000000"); pg.fill("#pw","wrong"); pg.click("text=Sign in"); pg.wait_for_selector(".err:not(:empty)")
+    print("bad login:", pg.inner_text(".err"))
+    pg.fill("#pw","Adm1n-Passw0rd!"); pg.click("text=Sign in"); pg.wait_for_selector("text=Dashboard")
+    pg.wait_for_selector("text=Questions"); print("dashboard stats:", pg.inner_text(".grid")[:80].replace("\n"," "))
+    for name in ["Questions","Import / Export","Grades & subjects","Students","Analytics","Audit log","Settings"]:
+        pg.click(f"nav >> text={name}"); pg.wait_for_selector("main h1"); pg.wait_for_timeout(400)
+        print(name, "->", pg.inner_text("main h1"))
+    pg.click("nav >> text=Questions"); pg.wait_for_selector("tbody tr")
+    # new question
+    pg.click("text=New question"); pg.wait_for_selector("#qt")
+    pg.fill("#qt",f"UI test: what is 3 + {__import__('time').time_ns()}?")
+    ins=pg.locator("input[type=text]"); ins.nth(0).fill("7"); ins.nth(1).fill("8"); ins.nth(2).fill("9"); ins.nth(3).fill("10")
+    pg.click("text=Preview"); print("preview:", pg.inner_text(".pv")[:40].replace("\n"," "))
+    pg.click("text=Save and publish"); pg.wait_for_selector("input[type=search]"); pg.wait_for_timeout(600)
+    pg.fill("input[type=search]","UI test"); pg.keyboard.press("Enter"); pg.wait_for_timeout(800)
+    print("found:", pg.locator("tbody tr").count(), pg.inner_text("tbody tr")[:60].replace("\n"," "))
+    pg.click("text=Unpublish"); pg.wait_for_timeout(600); print("status now:", pg.inner_text("tbody tr .badge"))
+    pg.click("tbody tr button.danger"); pg.click("dialog button.danger"); pg.wait_for_timeout(800)
+    print("after delete rows:", pg.locator("tbody tr").count())
+    pg.click("nav >> text=Audit log"); pg.wait_for_selector("h1:text(\"Audit log\")"); pg.wait_for_timeout(800); print("audit rows:", pg.locator("tbody tr").count())
+    pg.screenshot(path="/tmp/admin.png")
+    b.close()
+print("console errors:", errs)

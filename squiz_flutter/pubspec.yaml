@@ -1,0 +1,27 @@
+name: squiz
+description: SQUIZ - smart quiz and exam practice for Ethiopian students, Grades 9-12.
+publish_to: none
+version: 2.0.0+2
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.3.2
+  path_provider: ^2.1.4
+  dio: ^5.7.0
+  flutter_secure_storage: ^9.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/data/bank.json
+    - assets/images/logo.png

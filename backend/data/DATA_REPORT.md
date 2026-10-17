@@ -1,0 +1,500 @@
+# SQUIZ data import report
+
+Generated 2026-10-15 from `SQUIZS`.
+
+- **161 quiz sets, 2389 questions** imported (2384 playable, **5 flagged for review**).
+- Explanations: 35 questions carry an explanation (copied from the source "reason" field). All others have none - none were invented.
+- Difficulty: the source has no difficulty data, so none is stored.
+
+## By grade
+
+- Grade 11: 81 sets, 1211 questions
+- Grade 12: 72 sets, 1088 questions
+- Grade 9: 1 sets, 20 questions
+- Grade all: 7 sets, 70 questions
+
+## Notes
+
+- Grade 11 English "Unit-7" links to grade11/english/eng7.html which is missing from the zip - skipped.
+- Grade 12 English "Unit-7" links to grade12/english/eng7.html which is missing from the zip - skipped.
+- Grade 9: 58 files in the source "grade9" folder were byte-for-byte copies of the Grade 11 quizzes and were NOT imported as Grade 9 (re-run with --include-grade9-copies to import them anyway). Grade 10: the source contains no content.
+- preference/advanced.html (titled "Biology Quiz" but contains agriculture questions) was not imported.
+- Answers are imported exactly as written. The builder can only detect answers that do not match an option, not answers that are factually wrong (for example, Grade 11 Mathematics Unit 1 lists (-2, 2) as the domain of f(x)=sqrt(4-x^2); it should be [-2, 2]). A teacher review of the answer keys is recommended.
+- 17 of the 72 Grade 12 sets have exactly the same questions as a Grade 11 set (Mathematics, Physics, English). They are kept because the original Grade 12 pages link to them, but they are probably copies and should be replaced with real Grade 12 content.
+
+## Questions flagged for review (5)
+
+The "correct answer" in the source does not match any of the options (even ignoring case, spaces and a trailing full stop). They are kept in the data but **excluded from practice, exam and scoring** until fixed. Edit the question in `data/bank.json` (set `a` to the correct option index and delete `bad`/`srcAnswer`) or fix the source and re-run the builder.
+
+- `grade11/physics/phy4.html` Q14: "A 100 W light bulb is turned on for 1 hour. How much energy is used by the light bulb?" -> source answer: "36,000 J"
+- `grade11/physics/phy5.html` Q8: "What is the SI unit of specific heat capacity?" -> source answer: "(All of the above"
+- `grade11/agriculture/agr5.html` Q8: "Which of the following is NOT a category of basic nutrients required for optimal animal he" -> source answer: "High palatability and digestibility"
+- `grade12/physics/phy4.html` Q14: "A 100 W light bulb is turned on for 1 hour. How much energy is used by the light bulb?" -> source answer: "36,000 J"
+- `grade12/physics/phy5.html` Q8: "What is the SI unit of specific heat capacity?" -> source answer: "(All of the above"
+
+## Answers resolved from a letter or label (375)
+
+The source gave the answer as a letter (e.g. "D") or "(a) text" instead of the option text. These were matched to the option with that label. Worth a quick check.
+
+- `grade11/physics/phy2.html` Q3 "What is the definition of pressure?" : "(a) Pressure is the force per unit area." -> "Pressure is the force per unit area."
+- `grade11/physics/phy2.html` Q4 "What is the SI unit of pressure?" : "(a) Pascal (Pa)" -> "Pascal (Pa)"
+- `grade11/physics/phy2.html` Q5 "What is the formula for pressure due to a fluid column?" : "(a) P = ρgh" -> "P = ρgh"
+- `grade11/physics/phy5.html` Q2 "What is the SI unit of temperature?" : "(c) Kelvin (K)" -> "Kelvin (K)"
+- `grade11/chemistry/che1.html` Q1 "The modern atomic theory is an improvement over:" : "a) Dalton's atomic theory" -> "Dalton's atomic theory"
+- `grade11/chemistry/che1.html` Q2 "The discovery of the electron is attributed to:" : "a) J.J. Thomson" -> "J.J. Thomson"
+- `grade11/chemistry/che1.html` Q3 "Which subatomic particle has a positive charge?" : "a) Proton" -> "Proton"
+- `grade11/chemistry/che1.html` Q4 "The discovery of the nucleus is associated with:" : "a) Ernest Rutherford" -> "Ernest Rutherford"
+- `grade11/chemistry/che1.html` Q5 "The concept of atomic orbitals is a part of:" : "d) The quantum mechanical model" -> "The quantum mechanical model"
+- `grade11/chemistry/che1.html` Q6 "Electromagnetic radiation consists of:" : "d) Waves of electric and magnetic fields" -> "Waves of electric and magnetic fields"
+- `grade11/chemistry/che1.html` Q7 "The Bohr model of the hydrogen atom explains:" : "b) The emission spectrum of hydrogen" -> "The emission spectrum of hydrogen"
+- `grade11/chemistry/che1.html` Q8 "Atomic spectra are produced when:" : "b) Electrons emit energy and move to lower energy levels" -> "Electrons emit energy and move to lower energy levels"
+- `grade11/chemistry/che1.html` Q9 "The ground state electronic configuration of an atom refers to:" : "a) The lowest energy state of an atom" -> "The lowest energy state of an atom"
+- `grade11/chemistry/che1.html` Q10 "The periodic table is organized based on:" : "b) Atomic number" -> "Atomic number"
+- `grade11/chemistry/che1.html` Q11 "The periodic table allows the classification of elements based on thei" : "d) All of the above" -> "All of the above"
+- `grade11/chemistry/che1.html` Q12 "Which of the following is NOT a postulate of Dalton's Atomic Theory?" : "(b) Atoms of a given element are identical in mass and properties." -> "Atoms of a given element are identical in mass and propertie"
+- `grade11/chemistry/che1.html` Q13 "The mass number of an atom is the sum of the number of:" : "(b) Protons and neutrons" -> "Protons and neutrons"
+- `grade11/chemistry/che1.html` Q14 "Which of the following elements is in the same period as oxygen (O)?" : "(c) Nitrogen (N)" -> "Nitrogen (N)"
+- `grade11/chemistry/che1.html` Q15 "Which of the following is NOT a characteristic of electromagnetic radi" : "(d) It has mass." -> "It has mass."
+- `grade11/chemistry/che3.html` Q1 "Which of the following is NOT a property of gases?" : "(d) They have a high viscosity." -> "They have a high viscosity."
+- `grade11/chemistry/che3.html` Q2 "The kinetic molecular theory of gases states that:" : "(a) Gas molecules are constantly in motion." -> "Gas molecules are constantly in motion."
+- `grade11/chemistry/che3.html` Q3 "The pressure of a gas is caused by:" : "(a) The collisions of gas molecules with the walls of their container." -> "The collisions of gas molecules with the walls of their cont"
+- `grade11/chemistry/che3.html` Q4 "The volume of a gas is inversely proportional to its:" : "(b) Pressure" -> "Pressure"
+- `grade11/chemistry/che3.html` Q5 "The temperature of a gas is a measure of:" : "(a) The average kinetic energy of its molecules." -> "The average kinetic energy of its molecules."
+- `grade11/chemistry/che3.html` Q6 "The ideal gas law is:" : "(a) PV = nRT" -> "PV = nRT"
+- `grade11/chemistry/che3.html` Q7 "Which of the following gases has the highest average kinetic energy at" : "(a) Helium" -> "Helium"
+- `grade11/chemistry/che3.html` Q8 "The process of changing a liquid into a gas is called:" : "(b) Evaporation" -> "Evaporation"
+- `grade11/chemistry/che3.html` Q9 "The process of changing a gas into a liquid is called:" : "(a) Condensation" -> "Condensation"
+- `grade11/chemistry/che3.html` Q10 "The boiling point of a liquid is the temperature at which:" : "(a) The vapor pressure of the liquid equals the atmospheric pressure." -> "The vapor pressure of the liquid equals the atmospheric pres"
+- `grade11/chemistry/che3.html` Q11 "The critical temperature of a substance is the temperature above which" : "(b) The substance cannot exist as a gas." -> "The substance cannot exist as a gas."
+- `grade11/chemistry/che3.html` Q12 "The process of changing a solid directly into a gas is called:" : "(c) Sublimation" -> "Sublimation"
+- `grade11/chemistry/che3.html` Q13 "The process of changing a gas directly into a solid is called:" : "(d) Freezing" -> "Freezing"
+- `grade11/chemistry/che3.html` Q14 "The melting point of a solid is the temperature at which:" : "(a) The solid begins to melt." -> "The solid begins to melt."
+- `grade11/chemistry/che3.html` Q15 "The freezing point of a liquid is the temperature at which:" : "(a) The liquid begins to freeze." -> "The liquid begins to freeze."
+- `grade11/chemistry/che4.html` Q1 "Chemical kinetics is the study of" : "(a) The rates of chemical reactions" -> "The rates of chemical reactions"
+- `grade11/chemistry/che4.html` Q2 "The rate of a chemical reaction is defined as:" : "(a) The change in concentration of reactants or products per unit time" -> "The change in concentration of reactants or products per uni"
+- `grade11/chemistry/che4.html` Q3 "The factors that affect the rate of a chemical reaction include:" : "(d) All of the above" -> "All of the above"
+- `grade11/chemistry/che4.html` Q4 "The rate constant of a reaction is:" : "(d) A constant that is independent of all reaction conditions" -> "A constant that is independent of all reaction conditions"
+- `grade11/chemistry/che4.html` Q5 "The order of a reaction is:" : "(d) The exponent to which the concentration of a reactant is raised in the rate law" -> "The exponent to which the concentration of a reactant is rai"
+- `grade11/chemistry/che4.html` Q6 "A zero-order reaction is a reaction in which:" : "(a) The rate is independent of the concentration of reactants" -> "The rate is independent of the concentration of reactants"
+- `grade11/chemistry/che4.html` Q7 "A first-order reaction is a reaction in which:" : "(b) The rate is directly proportional to the concentration of reactants" -> "The rate is directly proportional to the concentration of re"
+- `grade11/chemistry/che4.html` Q8 "A second-order reaction is a reaction in which:" : "(c) The rate is inversely proportional to the concentration of reactants" -> "The rate is inversely proportional to the concentration of r"
+- `grade11/chemistry/che4.html` Q9 "The integrated rate law for a zero-order reaction is:" : "(a) [A]t - [A]0 = kt" -> "[A]t - [A]0 = kt"
+- `grade11/chemistry/che4.html` Q10 "The integrated rate law for a first-order reaction is:" : "(b) ln([A]t) - ln([A]0) = kt" -> "ln([A]t) - ln([A]0) = kt"
+- `grade11/chemistry/che4.html` Q11 "The integrated rate law for a second-order reaction is:" : "(c) 1/[A]t - 1/[A]0 = kt" -> "1/[A]t - 1/[A]0 = kt"
+- `grade11/chemistry/che4.html` Q12 "The Arrhenius equation relates the rate constant of a reaction to:" : "(b) The temperature of the reaction" -> "The temperature of the reaction"
+- `grade11/chemistry/che4.html` Q13 "The activation energy of a reaction is:" : "(a) The minimum energy required for a reaction to occur" -> "The minimum energy required for a reaction to occur"
+- `grade11/chemistry/che4.html` Q14 "A catalyst is a substance that:" : "(a) Increases the rate of a reaction without being consumed" -> "Increases the rate of a reaction without being consumed"
+- `grade11/chemistry/che4.html` Q15 "The collision theory states that:" : "(d) All of the above" -> "All of the above"
+- `grade11/chemistry/che5.html` Q1 "Chemical equilibrium is the state in which" : "(b) The rates of the forward and reverse reactions are equal." -> "The rates of the forward and reverse reactions are equal."
+- `grade11/chemistry/che5.html` Q2 "The equilibrium constant Kc is defined as:" : "(b) The ratio of the concentrations of products to reactants at equilibrium" -> "The ratio of the concentrations of products to reactants at "
+- `grade11/chemistry/che5.html` Q3 "The equilibrium constant Kp is defined as:" : "(a) The ratio of the partial pressures of products to reactants at equilibrium" -> "The ratio of the partial pressures of products to reactants "
+- `grade11/chemistry/che5.html` Q4 "The value of Kc indicates:" : "(a) Whether the reaction favors products or reactants at equilibrium" -> "Whether the reaction favors products or reactants at equilib"
+- `grade11/chemistry/che5.html` Q5 "A reaction with a Kc value greater than 1 favors:" : "(a) Products at equilibrium" -> "Products at equilibrium"
+- `grade11/chemistry/che5.html` Q6 "A reaction with a Kc value less than 1 favors:" : "(b) Reactants at equilibrium" -> "Reactants at equilibrium"
+- `grade11/chemistry/che5.html` Q7 "The change in Gibbs free energy (ΔG) of a reaction is related to the e" : "(a) ΔG = -RTlnK" -> "ΔG = -RTlnK"
+- `grade11/chemistry/che5.html` Q8 "A reaction with a negative ΔG is:" : "(a) Spontaneous" -> "Spontaneous"
+- `grade11/chemistry/che5.html` Q9 "A reaction with a positive ΔG is:" : "(b) Non-spontaneous" -> "Non-spontaneous"
+- `grade11/chemistry/che5.html` Q10 "Le Chatelier's principle states that:" : "(a) If a change in conditions is applied to a system at equilibrium, the system will shift in a direction that relieves the stress." -> "If a change in conditions is applied to a system at equilibr"
+- `grade11/chemistry/che5.html` Q11 "Adding heat to an endothermic reaction will:" : "(b) Shift the equilibrium to the right" -> "Shift the equilibrium to the right"
+- `grade11/chemistry/che5.html` Q12 "Adding a product to a reaction at equilibrium will:" : "(b) Shift the equilibrium to the right" -> "Shift the equilibrium to the right"
+- `grade11/chemistry/che5.html` Q13 "Adding a reactant to a reaction at equilibrium will:" : "(a) Shift the equilibrium to the left" -> "Shift the equilibrium to the left"
+- `grade11/chemistry/che5.html` Q14 "Increasing the pressure of a reaction involving gases will:" : "(b) Shift the equilibrium to the side with more moles of gas" -> "Shift the equilibrium to the side with more moles of gas"
+- `grade11/chemistry/che5.html` Q15 "Adding a catalyst to a reaction at equilibrium will:" : "(c) Have no effect on the equilibrium" -> "Have no effect on the equilibrium"
+- `grade11/chemistry/che6.html` Q1 "An acid is a substance that" : "(a) Produces hydrogen ions (H+) in solution" -> "Produces hydrogen ions (H+) in solution"
+- `grade11/chemistry/che6.html` Q2 "A base is a substance that:" : "(b) Produces hydroxide ions (OH-) in solution" -> "Produces hydroxide ions (OH-) in solution"
+- `grade11/chemistry/che6.html` Q3 "The pH of a solution is a measure of:" : "(a) The concentration of hydrogen ions (H+) in the solution" -> "The concentration of hydrogen ions (H+) in the solution"
+- `grade11/chemistry/che6.html` Q4 "A strong acid is an acid that:" : "(a) Ionizes completely in solution" -> "Ionizes completely in solution"
+- `grade11/chemistry/che6.html` Q5 "A weak acid is an acid that:" : "(b) Ionizes partially in solution" -> "Ionizes partially in solution"
+- `grade11/chemistry/che6.html` Q6 "A strong base is a base that:" : "(a) Ionizes completely in solution" -> "Ionizes completely in solution"
+- `grade11/chemistry/che6.html` Q7 "A weak base is a base that:" : "(b) Ionizes partially in solution" -> "Ionizes partially in solution"
+- `grade11/chemistry/che6.html` Q8 "The pH of a neutral solution is:" : "(b) 7" -> "7"
+- `grade11/chemistry/che6.html` Q9 "The pH of an acidic solution is:" : "(a) Less than 7" -> "Less than 7"
+- `grade11/chemistry/che6.html` Q10 "The pH of a basic solution is:" : "(c) Greater than 7" -> "Greater than 7"
+- `grade11/chemistry/che6.html` Q11 "The pH of a 0.1 M solution of HCl is:" : "(a) 1" -> "1"
+- `grade11/chemistry/che6.html` Q12 "The pH of a 0.1 M solution of NaOH is:" : "(b) 11" -> "11"
+- `grade11/chemistry/che6.html` Q13 "The pH of a solution can be measured using:" : "(d) All of the above" -> "All of the above"
+- `grade11/chemistry/che6.html` Q14 "An acid-base titration is a method used to:" : "(a) Determine the concentration of an acid or base" -> "Determine the concentration of an acid or base"
+- `grade11/chemistry/che6.html` Q15 "The equivalence point of an acid-base titration is the point at which:" : "(c) The reaction is complete" -> "The reaction is complete"
+- `grade11/english/eng1.html` Q3 "Choose the sentence that is in the active voice:" : "(B) Her mother baked the cake." -> "Her mother baked the cake."
+- `grade11/english/eng2.html` Q2 "How would you report the speech 'She said, 'I will call you later'?" : "(D) She said she would call me later." -> "She said she would call me later."
+- `grade11/agriculture/agr2.html` Q11 "Which part of the haricot bean is consumed as a vegetable?" : "b) Pods" -> "Pods"
+- `grade12/physics/phy2.html` Q3 "What is the definition of pressure?" : "(a) Pressure is the force per unit area." -> "Pressure is the force per unit area."
+- `grade12/physics/phy2.html` Q4 "What is the SI unit of pressure?" : "(a) Pascal (Pa)" -> "Pascal (Pa)"
+- `grade12/physics/phy2.html` Q5 "What is the formula for pressure due to a fluid column?" : "(a) P = ρgh" -> "P = ρgh"
+- `grade12/physics/phy5.html` Q2 "What is the SI unit of temperature?" : "(c) Kelvin (K)" -> "Kelvin (K)"
+- `grade12/english/eng1.html` Q2 "How would you report the speech 'She said, 'I will call you later'?" : "(D) She said she would call me later." -> "She said she would call me later."
+- `grade12/english/eng2.html` Q3 "Choose the sentence that is in the active voice:" : "(B) Her mother baked the cake." -> "Her mother baked the cake."
+- `grade12/history/his1.html` Q1 "Which of the following best describes the nature of capitalism?" : "B) Private ownership of the means of production" -> "Private ownership of the means of production"
+- `grade12/history/his1.html` Q2 "What is one of the main features of capitalism?" : "C) Profit incentive for businesses and individuals" -> "Profit incentive for businesses and individuals"
+- `grade12/history/his1.html` Q3 "Which of the following statements best describes the Industrial Revolu" : "B) A time when manual labor was replaced by machines and mass production." -> "A time when manual labor was replaced by machines and mass p"
+- `grade12/history/his1.html` Q4 "Which of the following factors played a significant role in leading to" : "C) Technological advancements in machinery and manufacturing processes" -> "Technological advancements in machinery and manufacturing pr"
+- `grade12/history/his1.html` Q5 "What impact did the enclosure movement and agricultural revolution hav" : "C) They increased agricultural productivity and freed up labor for industrial work" -> "They increased agricultural productivity and freed up labor "
+- `grade12/history/his1.html` Q6 "Which of the following political and socio-economic changes occurred a" : "A) Expansion of democracy and the rise of labor unions" -> "Expansion of democracy and the rise of labor unions"
+- `grade12/history/his1.html` Q7 "What major factor played a significant role in the growth of nationali" : "C) Language and cultural identity" -> "Language and cultural identity"
+- `grade12/history/his1.html` Q8 "Why did nationalism influence urban people more than peasants in the c" : "A) Urban areas had greater access to education and exposure to nationalist ideas" -> "Urban areas had greater access to education and exposure to "
+- `grade12/history/his1.html` Q9 "How did the USA become very successful in assimilating and turning a m" : "C) By promoting cultural assimilation and the 'melting pot' ideology" -> "By promoting cultural assimilation and the 'melting pot' ide"
+- `grade12/history/his1.html` Q10 "What were the obstacles and favorable factors in the process of Italia" : "C) Division among Italian states and influence of foreign powers like Austria" -> "Division among Italian states and influence of foreign power"
+- `grade12/history/his1.html` Q11 "Why did the Italian government use the 1866 Austro-Prussian War and th" : "D) To take advantage of the weakened Austrian and French positions in the conflicts." -> "To take advantage of the weakened Austrian and French positi"
+- `grade12/history/his1.html` Q12 "What were the causes and results of the two Balkan Wars?" : "B) Nationalist aspirations and territorial disputes" -> "Nationalist aspirations and territorial disputes"
+- `grade12/history/his1.html` Q13 "What were the main goals and outcomes of the First Balkan War?" : "A) To establish a united Balkan federation and achieve territorial expansion" -> "To establish a united Balkan federation and achieve territor"
+- `grade12/history/his1.html` Q14 "What strategy did Bismarck use to unite Germany?" : "B) Diplomatic negotiations and alliances with other European powers" -> "Diplomatic negotiations and alliances with other European po"
+- `grade12/history/his1.html` Q15 "What was the German Confederation?" : "C) A loose association of German states led by Austria" -> "A loose association of German states led by Austria"
+- `grade12/history/his2.html` Q1 "What was Legitimate Trade in the context of African history?" : "B) A system of legal and regulated commerce between Africa and Europe" -> "A system of legal and regulated commerce between Africa and "
+- `grade12/history/his2.html` Q2 "What is Illegitimate Trade in the context of African history?" : "D) Illegal trade activities, such as the smuggling of goods or human trafficking" -> "Illegal trade activities, such as the smuggling of goods or "
+- `grade12/history/his2.html` Q3 "Why did Europeans colonize Africa?" : "C) To exploit Africa's resources and expand their empires" -> "To exploit Africa's resources and expand their empires"
+- `grade12/history/his2.html` Q4 "Why was Africa involved in the transatlantic slave trade?" : "D) To profit from the sale of enslaved individuals to European traders" -> "To profit from the sale of enslaved individuals to European "
+- `grade12/history/his2.html` Q5 "How did infrastructure contribute to the ideology of New Imperialism?" : "B) Infrastructure development facilitated resource extraction and control over colonies" -> "Infrastructure development facilitated resource extraction a"
+- `grade12/history/his2.html` Q6 "What role did ideology play in the infrastructure projects of New Impe" : "C) Ideology justified infrastructure development for resource extraction and colonial control" -> "Ideology justified infrastructure development for resource e"
+- `grade12/history/his2.html` Q7 "What forms did African resistance take against colonial expansion?" : "C) Armed rebellions, diplomatic negotiations, and cultural resistance" -> "Armed rebellions, diplomatic negotiations, and cultural resi"
+- `grade12/history/his2.html` Q8 "How did African societies resist colonial expansion during the 19th an" : "C) By engaging in armed resistance, cultural preservation, and political movements" -> "By engaging in armed resistance, cultural preservation, and "
+- `grade12/history/his2.html` Q9 "What was the significance of Samori Touré of the Mandinka Empire?" : "B) He was a powerful military leader who resisted European colonization in West Africa" -> "He was a powerful military leader who resisted European colo"
+- `grade12/history/his2.html` Q10 "Who were the Ashanti people?" : "B) A powerful empire in West Africa" -> "A powerful empire in West Africa"
+- `grade12/history/his2.html` Q11 "What was the significance of the Ashanti Empire?" : "B) They were skilled warriors and had a strong military presence" -> "They were skilled warriors and had a strong military presenc"
+- `grade12/history/his2.html` Q12 "What was the significance of Urabi Pasha's Rebellion in Egypt?" : "B) It resulted in the expulsion of foreign influences and the rise of Egyptian nationalism" -> "It resulted in the expulsion of foreign influences and the r"
+- `grade12/history/his2.html` Q13 "What characterized British Colonial Policy during the 19th and 20th ce" : "A) Focus on economic exploitation and resource extraction" -> "Focus on economic exploitation and resource extraction"
+- `grade12/history/his2.html` Q14 "What distinguished French colonial policy from British colonial policy" : "C) French policy prioritized economic exploitation and assimilation" -> "French policy prioritized economic exploitation and assimila"
+- `grade12/history/his2.html` Q15 "What characterized the political economy of colonial agriculture, mini" : "B) Colonial powers controlled and exploited natural resources for economic gain" -> "Colonial powers controlled and exploited natural resources f"
+- `grade12/history/his3.html` Q1 "What was the Zemene Mesafint in Ethiopian history?" : "C) A period of power struggle and internal conflict" -> "A period of power struggle and internal conflict"
+- `grade12/history/his3.html` Q2 "How did Ethiopia manage to maintain its independence during the Zemene" : "B) Through strong leadership and military resistance" -> "Through strong leadership and military resistance"
+- `grade12/history/his3.html` Q3 "What factors contributed to the revival of long-distance trade in hist" : "A) Technological advancements and innovations in transportation" -> "Technological advancements and innovations in transportation"
+- `grade12/history/his3.html` Q4 "How did the expansion of empires impact the revival of long-distance t" : "B) Empires facilitated the establishment of trade routes and networks" -> "Empires facilitated the establishment of trade routes and ne"
+- `grade12/history/his3.html` Q5 "What were some key commodities traded in Ethiopia's long-distance trad" : "D) Coffee, leather, and livestock" -> "Coffee, leather, and livestock"
+- `grade12/history/his3.html` Q6 "How did Ethiopia's geographic location contribute to its participation" : "B) Ethiopia's access to the Red Sea and Indian Ocean facilitated trade with other regions" -> "Ethiopia's access to the Red Sea and Indian Ocean facilitate"
+- `grade12/history/his3.html` Q7 "What were some of the major trade routes that passed through Ethiopia " : "A) The Silk Road and the Trans-Saharan trade routes" -> "The Silk Road and the Trans-Saharan trade routes"
+- `grade12/history/his3.html` Q8 "How did Ethiopia's strategic location along trade routes impact its ec" : "A) It allowed for the exchange of goods, ideas, and cultural influences" -> "It allowed for the exchange of goods, ideas, and cultural in"
+- `grade12/history/his3.html` Q9 "How did the Zemene Mesafint period come to an end in Ethiopia?" : "C) Through a series of military conflicts and power struggles among regional lords" -> "Through a series of military conflicts and power struggles a"
+- `grade12/history/his3.html` Q10 "In November 1852 Kassa defeated dejach gosh Zewde of gojjam at the bat" : "D) Gorgora bichen" -> "Gorgora bichen"
+- `grade12/history/his3.html` Q11 "What were some of the key reforms implemented by Emperor Tewodros II d" : "A) Centralization of power and administrative reforms" -> "Centralization of power and administrative reforms"
+- `grade12/history/his3.html` Q12 "Why were Emperor Tewodros II's reforms not warmly welcomed by all segm" : "A) They undermined the power and autonomy of regional lords and nobles" -> "They undermined the power and autonomy of regional lords and"
+- `grade12/history/his3.html` Q13 "Emperor Tewodros II committed suicide on __________ rather than surren" : "C) April 13, 1868" -> "April 13, 1868"
+- `grade12/history/his3.html` Q14 "Who were the primary adversaries in the Battles of Gundet and Gura in " : "D) Italian forces and Ethiopian warriors" -> "Italian forces and Ethiopian warriors"
+- `grade12/history/his3.html` Q15 "What was the outcome of the Battles of Gundet and Gura in Ethiopia?" : "A) Victory for the Ethiopian forces" -> "Victory for the Ethiopian forces"
+- `grade12/history/his4.html` Q1 "Which countries made up the Triple Alliance during World War I?" : "A) Germany, Austria-Hungary, and Italy" -> "Germany, Austria-Hungary, and Italy"
+- `grade12/history/his4.html` Q2 "Which countries made up the Triple Entente during World War I?" : "A) France, Russia, and Britain" -> "France, Russia, and Britain"
+- `grade12/history/his4.html` Q3 "Which event is considered a major contributing factor to the outbreak " : "a) The assassination of Archduke Franz Ferdinand" -> "The assassination of Archduke Franz Ferdinand"
+- `grade12/history/his4.html` Q4 "What was the name of the crisis that escalated tensions between Austri" : "c) The July crisis" -> "The July crisis"
+- `grade12/history/his4.html` Q5 "What was the main aim of the Treaty of Versailles?" : "b) To punish Germany for its role in World War I" -> "To punish Germany for its role in World War I"
+- `grade12/history/his4.html` Q6 "Who was the leader of the Bolshevik Party during the Russian Revolutio" : "a) Vladimir Lenin" -> "Vladimir Lenin"
+- `grade12/history/his4.html` Q7 "What was the main objective of the October 1917 Revolution in Russia?" : "d) To overthrow the Provisional Government" -> "To overthrow the Provisional Government"
+- `grade12/history/his4.html` Q8 "In what year did Benito Mussolini become Prime Minister of Italy?" : "B) 1922" -> "1922"
+- `grade12/history/his4.html` Q9 "What was the name of Mussolini's political party?" : "C) Fascist Party" -> "Fascist Party"
+- `grade12/history/his4.html` Q10 "What was the March on Rome?" : "A) A military coup led by Mussolini" -> "A military coup led by Mussolini"
+- `grade12/history/his4.html` Q11 "Which alliance system was led by the United States, the United Kingdom" : "C) Allied Powers" -> "Allied Powers"
+- `grade12/history/his4.html` Q12 "What event led to the United States entering World War II and joining " : "A) Attack on Pearl Harbor" -> "Attack on Pearl Harbor"
+- `grade12/history/his4.html` Q13 "The Tripartite Pact was signed in 1940 and established the alliance be" : "A) Japan" -> "Japan"
+- `grade12/history/his4.html` Q14 "Which Axis power invaded Poland in 1939, leading to the outbreak of Wo" : "A) Germany" -> "Germany"
+- `grade12/history/his4.html` Q15 "Which military tactic used by the Axis powers helped them achieve earl" : "A) Blitzkrieg" -> "Blitzkrieg"
+- `grade12/history/his5.html` Q1 "Which of the following was a major political consequence of World War " : "C) Emergence of the United Nations" -> "Emergence of the United Nations"
+- `grade12/history/his5.html` Q2 "What economic consequence did many countries face after World War II?" : "C) High inflation rates" -> "High inflation rates"
+- `grade12/history/his5.html` Q3 "The aftermath of World War II led to the:" : "C) End of colonialism" -> "End of colonialism"
+- `grade12/history/his5.html` Q4 "At the Yalta Conference, the leaders agreed on the:" : "A) Post-war division of Korea" -> "Post-war division of Korea"
+- `grade12/history/his5.html` Q5 "What was a key outcome of the Potsdam Conference?" : "A) Agreement on the division of Berlin" -> "Agreement on the division of Berlin"
+- `grade12/history/his5.html` Q6 "Which of the following statements is true about the Nuremberg Trials?" : "C) They were a series of military tribunals" -> "They were a series of military tribunals"
+- `grade12/history/his5.html` Q7 "The Nuremberg Trials primarily focused on prosecuting individuals resp" : "C) Genocide in Europe" -> "Genocide in Europe"
+- `grade12/history/his5.html` Q8 "Which international tribunal was established to prosecute major war cr" : "B) Nuremberg Trials" -> "Nuremberg Trials"
+- `grade12/history/his5.html` Q9 "How many main organs does the United Nations have?" : "B) 5" -> "5"
+- `grade12/history/his5.html` Q10 "What is the primary purpose of the United Nations?" : "C) Maintain international peace and security" -> "Maintain international peace and security"
+- `grade12/history/his5.html` Q11 "The term 'economic miracle' is often used to describe the rapid econom" : "A) Japan" -> "Japan"
+- `grade12/history/his5.html` Q12 "The General Agreement on Tariffs and Trade (GATT) was established to p" : "B) Free trade and reduce tariffs" -> "Free trade and reduce tariffs"
+- `grade12/history/his5.html` Q13 "When was the United Nations Organization officially established?" : "C) 1945" -> "1945"
+- `grade12/history/his5.html` Q14 "The division of Germany into East and West Germany symbolized the ideo" : "A) Capitalist and Communist blocs" -> "Capitalist and Communist blocs"
+- `grade12/history/his5.html` Q15 "The North Atlantic Treaty Organization (NATO) was formed as a military" : "A) Capitalist bloc" -> "Capitalist bloc"
+- `grade12/history/his6.html` Q1 "The 'Open Door Policy' in China during the late 19th and early 20th ce" : "C) Allowing equal trade access for all foreign powers" -> "Allowing equal trade access for all foreign powers"
+- `grade12/history/his6.html` Q2 "The Treaty of Portsmouth in 1905 ended the Russo-Japanese War and was " : "A) Theodore Roosevelt" -> "Theodore Roosevelt"
+- `grade12/history/his6.html` Q3 "The GTP in Ethiopia emphasized sectors such as agriculture, manufactur" : "B) Achieve sustainable economic growth" -> "Achieve sustainable economic growth"
+- `grade12/history/his6.html` Q4 "The Ethiopian government's focus on infrastructure development, energy" : "B) Reduce poverty and unemployment" -> "Reduce poverty and unemployment"
+- `grade12/history/his6.html` Q5 "What were the major differences between the revised constitution in 19" : "C) The 1955 constitution established a bicameral legislature" -> "The 1955 constitution established a bicameral legislature"
+- `grade12/history/his6.html` Q6 "How did the revised 1955 constitution address issues of social justice" : "B) By guaranteeing equal rights for all citizens" -> "By guaranteeing equal rights for all citizens"
+- `grade12/history/his6.html` Q7 "Following the 1960 coup, a new government was established under the gu" : "A) Military junta" -> "Military junta"
+- `grade12/history/his6.html` Q8 "Who were the leaders of the coup d'état of 1960 in Turkey?" : "C) Kenan Evren" -> "Kenan Evren"
+- `grade12/history/his6.html` Q9 "The leaders of the 1960 coup d'état justified their actions by citing:" : "C) Political corruption" -> "Political corruption"
+- `grade12/history/his6.html` Q10 "The Bale Peasant Rebellion was a major uprising that took place in whi" : "A) Ethiopia" -> "Ethiopia"
+- `grade12/history/his6.html` Q11 "Who were the key leaders or figures associated with the Bale Peasant R" : "B) Menelik II" -> "Menelik II"
+- `grade12/history/his6.html` Q12 "How did the Ethiopian Student Movement influence the broader political" : "A) By advocating for democratic reforms" -> "By advocating for democratic reforms"
+- `grade12/history/his6.html` Q13 "The Ethiopian Student Movement played a crucial role in:" : "B) Organizing labor strikes and protests" -> "Organizing labor strikes and protests"
+- `grade12/history/his6.html` Q14 "What role did social media and technology play in amplifying the griev" : "C) They provided a platform for organizing protests and dissent" -> "They provided a platform for organizing protests and dissent"
+- `grade12/history/his6.html` Q15 "How did the failure to address Endalkachew's plea contribute to the es" : "A) It reinforced a sense of injustice and inequality" -> "It reinforced a sense of injustice and inequality"
+- `grade12/history/his8.html` Q1 "Who was the leader of Ethiopia following the transition from the Derg " : "c) Meles Zenawi" -> "Meles Zenawi"
+- `grade12/history/his8.html` Q2 "What economic reforms were introduced in Ethiopia post-1991 to promote" : "c) Privatization and liberalization" -> "Privatization and liberalization"
+- `grade12/history/his8.html` Q3 "What major conflict occurred in Ethiopia in the late 20th century and " : "a) Border war with Eritrea" -> "Border war with Eritrea"
+- `grade12/history/his8.html` Q4 "When was the Transitional Government of Ethiopia established?" : "A) 1991" -> "1991"
+- `grade12/history/his8.html` Q5 "Who was the leader of the Transitional Government of Ethiopia?" : "C) Hailemariam Desalegn" -> "Hailemariam Desalegn"
+- `grade12/history/his8.html` Q6 "What type of government system does the FDRE have?" : "D) Federal Republic" -> "Federal Republic"
+- `grade12/history/his8.html` Q7 "Which document served as the constitution for the formation of the FDR" : "C) The Federal Constitution of Ethiopia" -> "The Federal Constitution of Ethiopia"
+- `grade12/history/his8.html` Q8 "What major project in Ethiopia has been a source of tension in the hyd" : "A) Grand Ethiopian Renaissance Dam (GERD)" -> "Grand Ethiopian Renaissance Dam (GERD)"
+- `grade12/history/his8.html` Q9 "Which country has historically held significant influence over the Nil" : "C) Egypt" -> "Egypt"
+- `grade12/history/his8.html` Q10 "What international agreement has been a point of contention among the " : "C) Nile Waters Agreement of 1929" -> "Nile Waters Agreement of 1929"
+- `grade12/history/his8.html` Q11 "Which conflict in Somalia saw Ethiopian troops intervene to combat ext" : "B) Al-Shabaab Insurgency" -> "Al-Shabaab Insurgency"
+- `grade12/history/his8.html` Q12 "How has Ethiopia's role in peacekeeping missions impacted its regional" : "B) Enhanced reputation as a regional leader" -> "Enhanced reputation as a regional leader"
+- `grade12/history/his8.html` Q13 "How did the Ethio-Eritrean War end?" : "A) Through a peace treaty" -> "Through a peace treaty"
+- `grade12/history/his8.html` Q14 "What impact did the Ethio-Eritrean War have on the relationship betwee" : "C) Led to ongoing border disputes" -> "Led to ongoing border disputes"
+- `grade12/history/his8.html` Q15 "When did the Ethio-Eritrean War officially begin?" : "C) 1998" -> "1998"
+- `grade12/economics/eco3.html` Q1 "What are the characteristics of public goods?" : "D. Non-rivalry in consumption and non-excludability" -> "Non-rivalry in consumption and non-excludability"
+- `grade12/economics/eco3.html` Q2 "Which of the following is an example of a pure public good?" : "C. National Defense" -> "National Defense"
+- `grade12/economics/eco3.html` Q3 "What is the free rider problem associated with public goods?" : "A. It refers to individuals who consume public goods without paying for them." -> "It refers to individuals who consume public goods without pa"
+- `grade12/economics/eco3.html` Q4 "Which of the following is a potential solution for market failures?" : "D. All of the above" -> "All of the above"
+- `grade12/economics/eco3.html` Q5 "What is the term for a person who enjoys the benefits of public goods " : "A. Free rider" -> "Free rider"
+- `grade12/economics/eco3.html` Q6 "Why does the free rider problem occur in the context of public goods?" : "B. Because people are unwilling to pay for public goods" -> "Because people are unwilling to pay for public goods"
+- `grade12/economics/eco3.html` Q7 "Which of the following is an example of non-excludable public good?" : "B. National Defense" -> "National Defense"
+- `grade12/economics/eco3.html` Q8 "What mechanism can prevent free riding in the provision of public good" : "D. All of the above" -> "All of the above"
+- `grade12/economics/eco3.html` Q9 "During a church or mosque service, what is passed around to collect co" : "B. Collection basket" -> "Collection basket"
+- `grade12/economics/eco3.html` Q10 "Why is consumer satisfaction crucial for the success of business?" : "D. It is the key to business survival and growth" -> "It is the key to business survival and growth"
+- `grade12/economics/eco3.html` Q11 "What is the moral responsibility of businesses according to the princi" : "B. To serve the interest of consumers" -> "To serve the interest of consumers"
+- `grade12/economics/eco3.html` Q12 "Which principle emphasizes that businesses should use resources effect" : "B. Principle of Trusteeship" -> "Principle of Trusteeship"
+- `grade12/economics/eco3.html` Q13 "What is the key characteristic of public goods that makes them difficu" : "A. Non-excludable" -> "Non-excludable"
+- `grade12/economics/eco3.html` Q14 "What term describes a cost or benefit that affects an otherwise uninvo" : "A. Externality" -> "Externality"
+- `grade12/economics/eco3.html` Q15 "What does consumer protection refer to?" : "B. Safeguarding the interest and rights of consumers" -> "Safeguarding the interest and rights of consumers"
+- `grade12/economics/eco4.html` Q1 "When the federal government uses taxation and spending action to stimu" : "B. Fiscal policy" -> "Fiscal policy"
+- `grade12/economics/eco4.html` Q2 "If the federal government cuts taxes and increases spending to stimula" : "D. Countercyclical" -> "Countercyclical"
+- `grade12/economics/eco4.html` Q3 "Which of the following are contractionary fiscal policies?" : "D. Increased taxation and decreased government spending." -> "Increased taxation and decreased government spending."
+- `grade12/economics/eco4.html` Q4 "Which of the following components of tax revenue (taxes) is primarily " : "B. Contributions for social insurance" -> "Contributions for social insurance"
+- `grade12/economics/eco4.html` Q5 "What type of fiscal policy aims to increase aggregate demand and fuel " : "B. Expansionary Fiscal Policy" -> "Expansionary Fiscal Policy"
+- `grade12/economics/eco4.html` Q6 "Which of the following is an example of a contractionary fiscal policy" : "C. Raising interest rates" -> "Raising interest rates"
+- `grade12/economics/eco4.html` Q7 "What is the objective of an expansionary fiscal policy?" : "B. To increase government expenditures on public works" -> "To increase government expenditures on public works"
+- `grade12/economics/eco4.html` Q8 "What is the major instrument of contractionary fiscal policy?" : "C. Decreasing subsidies and grants" -> "Decreasing subsidies and grants"
+- `grade12/economics/eco4.html` Q9 "Who is responsible for implementing monetary policy in Ethiopia?" : "B. National Bank" -> "National Bank"
+- `grade12/economics/eco4.html` Q10 "What is the purpose of monetary policy?" : "A. To control the quantity of money in an economy" -> "To control the quantity of money in an economy"
+- `grade12/economics/eco4.html` Q11 "How does the National Bank of Ethiopia increase the money supply throu" : "B. By purchasing government bonds from commercial banks" -> "By purchasing government bonds from commercial banks"
+- `grade12/economics/eco4.html` Q12 "What is the purpose of the discount rate set by the National Bank of E" : "A. To encourage banks to lend money" -> "To encourage banks to lend money"
+- `grade12/economics/eco4.html` Q13 "How does the National Bank of Ethiopia implement a contractionary mone" : "C. By increasing the required reserve ratio" -> "By increasing the required reserve ratio"
+- `grade12/economics/eco4.html` Q14 "What is the objective of expansionary fiscal policy?" : "D. Stimulate deficient demand" -> "Stimulate deficient demand"
+- `grade12/economics/eco4.html` Q15 "Which instrument is used in contractionary monetary policy?" : "C. Increase in required reserve ratio" -> "Increase in required reserve ratio"
+- `grade12/economics/eco5.html` Q1 "What is the main purpose of taxation mentioned in the note?" : "B. To raise revenue for the government" -> "To raise revenue for the government"
+- `grade12/economics/eco5.html` Q2 "What does tax incidence refer to?" : "C. The burden distribution of the tax among economic units" -> "The burden distribution of the tax among economic units"
+- `grade12/economics/eco5.html` Q3 "What is the main objective of imposing taxes by governments?" : "C. To raise revenue for government spending" -> "To raise revenue for government spending"
+- `grade12/economics/eco5.html` Q4 "Horizontal equity in taxation refers to:" : "A. Tax burden based on income levels" -> "Tax burden based on income levels"
+- `grade12/economics/eco5.html` Q5 "Which of the following is NOT a characteristic of a good tax system?" : "D. Complexity" -> "Complexity"
+- `grade12/economics/eco5.html` Q6 "Indirect taxes differ from direct taxes in that:" : "D. They impose the burden on a different person" -> "They impose the burden on a different person"
+- `grade12/economics/eco5.html` Q7 "Proportional taxes are characterized by:" : "C. The tax rate remains constant regardless of income" -> "The tax rate remains constant regardless of income"
+- `grade12/economics/eco5.html` Q8 "In Ethiopia, taxes are classified as:" : "B. Direct and indirect taxes" -> "Direct and indirect taxes"
+- `grade12/economics/eco5.html` Q9 "Which of the following is a common problem faced by tax systems?" : "D. Tax evasion and avoidance" -> "Tax evasion and avoidance"
+- `grade12/economics/eco5.html` Q10 "The term 'tax avoidance' refers to:" : "B. Legal measures taken to minimize tax liability" -> "Legal measures taken to minimize tax liability"
+- `grade12/economics/eco5.html` Q11 "What is the primary challenge of tax systems mentioned in the note?" : "A. Difficulty for taxpayers to understand and comply with the laws" -> "Difficulty for taxpayers to understand and comply with the l"
+- `grade12/economics/eco5.html` Q12 "Which of the following is NOT a characteristic of a good tax system?" : "C. Difficulty to understand" -> "Difficulty to understand"
+- `grade12/economics/eco5.html` Q13 "The concept of vertical equity in taxation refers to:" : "B. Tax burden based on wealth levels" -> "Tax burden based on wealth levels"
+- `grade12/economics/eco5.html` Q14 "Which of the following is NOT a common goal of taxation mentioned in t" : "D. Ensuring horizontal equity" -> "Ensuring horizontal equity"
+- `grade12/economics/eco5.html` Q15 "Which term is used to describe the type of tax based on its impact?" : "C. Progressive tax" -> "Progressive tax"
+- `grade12/economics/eco6.html` Q1 "Which of the following is NOT a manifestation of underdevelopment?" : "D" -> "Lack of technological advancements"
+- `grade12/economics/eco6.html` Q2 "Poverty can be measured in terms of:" : "D" -> "All of the above"
+- `grade12/economics/eco6.html` Q3 "The reduction or eradication of absolute poverty is a crucial goal of:" : "C" -> "Developing countries"
+- `grade12/economics/eco6.html` Q4 "What is the Lorenz curve used to measure?" : "D" -> "Income distribution"
+- `grade12/economics/eco6.html` Q5 "Inequality is expressed in terms of the distribution of:" : "C" -> "Income"
+- `grade12/economics/eco6.html` Q6 "Which dimension(s) does poverty and inequality have?" : "D" -> "All of the above"
+- `grade12/economics/eco6.html` Q7 "Ethiopia has attempted to reduce poverty in the last few decades, but " : "D" -> "Is still present"
+- `grade12/economics/eco6.html` Q8 "The role of indigenous knowledge and institutions in poverty reduction" : "A" -> "Needs further exploration"
+- `grade12/economics/eco6.html` Q9 "Which of the following is NOT a factor determining poverty?" : "D" -> "Lack of technological advancements"
+- `grade12/economics/eco6.html` Q10 "Which type of poverty focuses on the individual's ability to function " : "C" -> "Wellbeing poverty"
+- `grade12/economics/eco6.html` Q11 "What is the subject of concern internationally as recommended in the S" : "C" -> "Eradication of absolute poverty"
+- `grade12/economics/eco6.html` Q12 "What is the main purpose of analyzing and measuring poverty?" : "C" -> "Assessing people's wellbeing"
+- `grade12/economics/eco6.html` Q13 "Which type of poverty can be seen in both relative and absolute terms?" : "A" -> "Income poverty"
+- `grade12/economics/eco6.html` Q14 "Inequality is expressed in terms of the distribution of:" : "D" -> "Income"
+- `grade12/economics/eco6.html` Q15 "Which dimensions does poverty and inequality have?" : "C" -> "Global, regional, and gender dimensions"
+- `grade12/economics/eco7.html` Q1 "Under which government initiative was the Peace, Democracy and Develop" : "C" -> "EPRDF"
+- `grade12/economics/eco7.html` Q2 "Which poverty reduction strategy covered the period from 2005/06 to 20" : "C" -> "PASDEP"
+- `grade12/economics/eco7.html` Q3 "Which national development plan covered the period from 2010/11 to 201" : "B" -> "GTP-I"
+- `grade12/economics/eco7.html` Q4 "The Growth and Transformation Plans (GTP I and II) aimed to achieve:" : "C" -> "Rapid and high economic growth"
+- `grade12/economics/eco7.html` Q5 "What is the central objective of the home-grown economic reform (HGER)" : "B" -> "Reducing debt vulnerabilities"
+- `grade12/economics/eco7.html` Q6 "Which government initiative aimed at establishing a socialist state th" : "B" -> "Derg"
+- `grade12/economics/eco7.html` Q7 "Which poverty reduction strategy aimed at achieving the Millennium Dev" : "C" -> "PASDEP"
+- `grade12/economics/eco7.html` Q8 "The Sustainable Development and Poverty Reduction Programme (SDPRP) co" : "B" -> "Three years"
+- `grade12/economics/eco7.html` Q9 "Which national development plan aimed at private-sector development an" : "A" -> "GTP-I"
+- `grade12/economics/eco7.html` Q10 "The Ethiopian government formulated a 10-year plan to achieve:" : "C" -> "African beacon of prosperity"
+- `grade12/economics/eco7.html` Q11 "The Monarchy implemented how many Five-Year National Development Plans" : "C" -> "Three"
+- `grade12/economics/eco7.html` Q12 "Which government initiative emphasized the interrelationships between " : "C" -> "EPRDF"
+- `grade12/economics/eco7.html` Q13 "Which poverty reduction strategy followed the Sustainable Development " : "D" -> "SDPRP"
+- `grade12/economics/eco7.html` Q14 "The Growth and Transformation Plans (GTP I and II) aimed to make all c" : "A" -> "Equitably benefit from growth proceeds"
+- `grade12/economics/eco7.html` Q15 "What is the main objective of the home-grown economic reform (HGER) in" : "C" -> "Job creation"
+- `grade12/agriculture/agr11.html` Q1 "How many wild bee species have been identified in Ethiopia?" : "c) 4" -> "4"
+- `grade12/agriculture/agr11.html` Q2 "What is the estimated potential honey production in Ethiopia per annum" : "b) 200,000 tons" -> "200,000 tons"
+- `grade12/agriculture/agr11.html` Q3 "What percentage of agricultural GDP does the contribution of honey bee" : "a) 2.14%" -> "2.14%"
+- `grade12/agriculture/agr11.html` Q4 "Which bee caste is responsible for laying all the eggs in a honeybee c" : "a) Queen bees" -> "Queen bees"
+- `grade12/agriculture/agr11.html` Q5 "What is the main task of worker bees in a honeybee colony?" : "b) Foraging for food" -> "Foraging for food"
+- `grade12/agriculture/agr11.html` Q6 "What are the four types of beekeeping practices in Ethiopia?" : "a) Forest, backyard, transitional, and modern" -> "Forest, backyard, transitional, and modern"
+- `grade12/agriculture/agr11.html` Q7 "Which type of hive is commonly used in transitional beekeeping?" : "c) Movable frame hive" -> "Movable frame hive"
+- `grade12/agriculture/agr11.html` Q8 "What are the common types of feed used as supplements for honeybees?" : "a) Sugar syrup, peas and bean flour, barley flour, and maize flour" -> "Sugar syrup, peas and bean flour, barley flour, and maize fl"
+- `grade12/agriculture/agr11.html` Q9 "When should the queen excluder be removed after honey harvest?" : "b) Before the dearth period" -> "Before the dearth period"
+- `grade12/agriculture/agr11.html` Q10 "What are some examples of honeybee pests mentioned in the text?" : "c) Wax moth, snakes, and mice" -> "Wax moth, snakes, and mice"
+- `grade12/agriculture/agr11.html` Q11 "What is the primary use of honey produced in Ethiopia?" : "a) Direct consumption" -> "Direct consumption"
+- `grade12/agriculture/agr11.html` Q12 "What is the estimated annual beeswax production in Ethiopia?" : "a) 3,658 tons" -> "3,658 tons"
+- `grade12/agriculture/agr11.html` Q13 "What are some examples of honeybee diseases mentioned in the text?" : "a) Chalk brood, nosematosis, and amoeba" -> "Chalk brood, nosematosis, and amoeba"
+- `grade12/agriculture/agr11.html` Q14 "How do beekeepers traditionally control swarming in Ethiopia?" : "b) Placing thorny woods around the hives" -> "Placing thorny woods around the hives"
+- `grade12/agriculture/agr11.html` Q15 "What materials are commonly used to make tools and equipment in tradit" : "a) Wood, clay, and pennisetum" -> "Wood, clay, and pennisetum"
+- `grade12/agriculture/agr12.html` Q1 "What is the primary objective of employing best nursery practices?" : "a) Producing high-quality seedlings" -> "Producing high-quality seedlings"
+- `grade12/agriculture/agr12.html` Q2 "Which of the following factors is NOT typically included in site inspe" : "c) Market demand for seedlings" -> "Market demand for seedlings"
+- `grade12/agriculture/agr12.html` Q3 "What are the characteristics of a good nursery site?" : "c) Well-drained and accessible to transportation" -> "Well-drained and accessible to transportation"
+- `grade12/agriculture/agr12.html` Q4 "What are the two types of nursery beds mentioned in the text?" : "a) Raised and sunken beds" -> "Raised and sunken beds"
+- `grade12/agriculture/agr12.html` Q5 "What is the recommended depth for planting seeds in seed-starting cont" : "b) Twice their thickness" -> "Twice their thickness"
+- `grade12/agriculture/agr12.html` Q6 "What is the recommended temperature for soil during seed germination?" : "b) Around 70°F" -> "Around 70°F"
+- `grade12/agriculture/agr12.html` Q7 "Why is it important to maintain consistent moisture in the soil during" : "b) To promote root development" -> "To promote root development"
+- `grade12/agriculture/agr12.html` Q8 "When should seedlings be fed with a half-strength liquid fertilizer?" : "c) After they develop true leaves" -> "After they develop true leaves"
+- `grade12/agriculture/agr12.html` Q9 "How many hours of direct light per day do seedlings ideally need for h" : "a) 8-10 hours" -> "8-10 hours"
+- `grade12/agriculture/agr12.html` Q10 "What is the purpose of hardening off seedlings before transplanting ou" : "c) To acclimatize seedlings to harsher conditions" -> "To acclimatize seedlings to harsher conditions"
+- `grade12/agriculture/agr12.html` Q11 "What is the primary focus of establishment and management in the early" : "a) Weed control" -> "Weed control"
+- `grade12/agriculture/agr12.html` Q12 "Which of the following methods can be used to establish plantations?" : "c) Direct seeding" -> "Direct seeding"
+- `grade12/agriculture/agr12.html` Q13 "What is the most important maintenance operation in plantation managem" : "b) Weed control" -> "Weed control"
+- `grade12/agriculture/agr12.html` Q14 "How can nutrient losses be minimized during harvesting?" : "a) Immediate removal of harvested trees from the site" -> "Immediate removal of harvested trees from the site"
+- `grade12/agriculture/agr12.html` Q15 "What is the purpose of erosion control in plantation management?" : "d) Retaining soil moisture" -> "Retaining soil moisture"
+- `grade12/agriculture/agr13.html` Q1 "What is the definition of agroforestry?" : "c) Using wood perennials in land management with agricultural crops" -> "Using wood perennials in land management with agricultural c"
+- `grade12/agriculture/agr13.html` Q2 "Which of the following is NOT an example of an agroforestry system men" : "d) Aquaponics" -> "Aquaponics"
+- `grade12/agriculture/agr13.html` Q3 "What is the primary purpose of windbreaks and shelter belts in agrofor" : "b) Controlling wind erosion" -> "Controlling wind erosion"
+- `grade12/agriculture/agr13.html` Q4 "What is the term used for agricultural feed derived from tree fodder?" : "c) Browse" -> "Browse"
+- `grade12/agriculture/agr13.html` Q5 "Which agroforestry practice involves growing perennial trees or shrubs" : "d) Alley cropping" -> "Alley cropping"
+- `grade12/agriculture/agr13.html` Q6 "What are the economic benefits of agroforestry?" : "b) Reducing agricultural inputs" -> "Reducing agricultural inputs"
+- `grade12/agriculture/agr13.html` Q7 "How can agroforestry systems improve the health and nutrition of the r" : "b) By reducing the time and effort needed to obtain tree products" -> "By reducing the time and effort needed to obtain tree produc"
+- `grade12/agriculture/agr13.html` Q8 "Which environmental service can agroforestry systems provide?" : "c) Contributing to biodiversity conservation" -> "Contributing to biodiversity conservation"
+- `grade12/agriculture/agr13.html` Q9 "What is the primary function of agrisilvicultural systems?" : "c) Combining crops, trees, and animals" -> "Combining crops, trees, and animals"
+- `grade12/agriculture/agr13.html` Q10 "Which classification of agroforestry involves a combination of crops, " : "c) Agrosilvopastoral systems" -> "Agrosilvopastoral systems"
+- `grade12/agriculture/agr13.html` Q11 "What are multipurpose trees (MPTs) in agroforestry?" : "d) Trees deliberately kept for more than one preferred use" -> "Trees deliberately kept for more than one preferred use"
+- `grade12/agriculture/agr13.html` Q12 "Which type of tree is commonly used as a fodder source for animals?" : "d) Fodder trees" -> "Fodder trees"
+- `grade12/agriculture/agr13.html` Q13 "What are some aboveground management practices in agroforestry?" : "b) Pruning and thinning" -> "Pruning and thinning"
+- `grade12/agriculture/agr13.html` Q14 "What is the objective of pollarding in agroforestry?" : "c) Regeneration of the tree crown" -> "Regeneration of the tree crown"
+- `grade12/agriculture/agr13.html` Q15 "When is root pruning commonly used in agroforestry systems?" : "a) To separate root systems of trees and crops" -> "To separate root systems of trees and crops"
+- `grade12/agriculture/agr14.html` Q1 "What are the components of soil?" : "a) Minerals, organic matter, and living organisms" -> "Minerals, organic matter, and living organisms"
+- `grade12/agriculture/agr14.html` Q2 "What determines the texture of soil?" : "c) Proportion of sand, silt, and clay particles" -> "Proportion of sand, silt, and clay particles"
+- `grade12/agriculture/agr14.html` Q3 "What is the purpose of soil structure?" : "b) To hold water and nutrients" -> "To hold water and nutrients"
+- `grade12/agriculture/agr14.html` Q4 "What is the resistance of soil to deformation called?" : "a) Consistency" -> "Consistency"
+- `grade12/agriculture/agr14.html` Q5 "What is bulk density?" : "b) The mass of soil per unit volume of soil" -> "The mass of soil per unit volume of soil"
+- `grade12/agriculture/agr14.html` Q6 "What are the major causes of soil erosion?" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr14.html` Q7 "How does deforestation contribute to soil erosion?" : "a) By exposing soil to erosion from water and wind" -> "By exposing soil to erosion from water and wind"
+- `grade12/agriculture/agr14.html` Q8 "What is overgrazing?" : "c) The depletion of grass cover by livestock or wildlife" -> "The depletion of grass cover by livestock or wildlife"
+- `grade12/agriculture/agr14.html` Q9 "How does excessive use of agrochemicals contribute to soil erosion?" : "c) It disrupts the balance of microorganisms in the soil" -> "It disrupts the balance of microorganisms in the soil"
+- `grade12/agriculture/agr14.html` Q10 "What are some negative impacts of soil erosion?" : "a) Decreased soil fertility and organic matter" -> "Decreased soil fertility and organic matter"
+- `grade12/agriculture/agr14.html` Q11 "What are the three main principles of conservation farming?" : "b) Minimum soil disturbance, crop residue management, and crop rotation" -> "Minimum soil disturbance, crop residue management, and crop "
+- `grade12/agriculture/agr14.html` Q12 "What is the purpose of afforestation and reforestation in soil and wat" : "c) To prevent soil erosion and improve ecosystem functions" -> "To prevent soil erosion and improve ecosystem functions"
+- `grade12/agriculture/agr14.html` Q13 "What is the function of a bench terrace in soil and water conservation" : "b) To convert a slope into a series of steps for cultivation" -> "To convert a slope into a series of steps for cultivation"
+- `grade12/agriculture/agr14.html` Q14 "What is alley cropping?" : "a) Growing food crops in alleys between rows of hedges" -> "Growing food crops in alleys between rows of hedges"
+- `grade12/agriculture/agr14.html` Q15 "What are some examples of indigenous mechanical soil and water conserv" : "b) Cultivation on ridges/rows and traditional dams/water retention ditches" -> "Cultivation on ridges/rows and traditional dams/water retent"
+- `grade12/agriculture/agr15.html` Q1 "What does the term 'gender' refer to?" : "d) Social and cultural roles associated with certain groups of people" -> "Social and cultural roles associated with certain groups of "
+- `grade12/agriculture/agr15.html` Q2 "What is gender equity?" : "a) The state of affording women and men equal enjoyment of human rights" -> "The state of affording women and men equal enjoyment of huma"
+- `grade12/agriculture/agr15.html` Q3 "What does gender integration involve?" : "d) Strategies applied in program assessment, design, implementation, and evaluation" -> "Strategies applied in program assessment, design, implementa"
+- `grade12/agriculture/agr15.html` Q4 "What is the definition of gender mainstreaming?" : "a) The process of incorporating a gender equality perspective into policies" -> "The process of incorporating a gender equality perspective i"
+- `grade12/agriculture/agr15.html` Q5 "What does women's empowerment mean?" : "c) Enhancing women's decision-making capacity, particularly in relation to sexuality and reproductive health" -> "Enhancing women's decision-making capacity, particularly in "
+- `grade12/agriculture/agr15.html` Q6 "What are some potential benefits of understanding the role of gender i" : "a) Increased productivity, reduced poverty, and improved food security" -> "Increased productivity, reduced poverty, and improved food s"
+- `grade12/agriculture/agr15.html` Q7 "Which statement accurately describes the role of women in food product" : "a) Women provide the majority of labor for all stages of farm tasks" -> "Women provide the majority of labor for all stages of farm t"
+- `grade12/agriculture/agr15.html` Q8 "What are some off-farm income-generating activities mentioned in the t" : "c) Petty trade and informal labor work" -> "Petty trade and informal labor work"
+- `grade12/agriculture/agr15.html` Q9 "Why is promoting gender equality and women's empowerment important for" : "c) It contributes to fighting hunger, malnutrition, and improving food security" -> "It contributes to fighting hunger, malnutrition, and improvi"
+- `grade12/agriculture/agr15.html` Q10 "What is the relationship between gender equality and achieving food se" : "c) Gender equality is essential for achieving food security and sustainable agriculture" -> "Gender equality is essential for achieving food security and"
+- `grade12/agriculture/agr15.html` Q11 "What does women empowerment in food production involve?" : "b) Making decisions over agriculture production and controlling income" -> "Making decisions over agriculture production and controlling"
+- `grade12/agriculture/agr15.html` Q12 "What is one example of women's empowerment in food production accordin" : "c) Women's control over productive resources" -> "Women's control over productive resources"
+- `grade12/agriculture/agr15.html` Q13 "Why is improving women's nutrition outcomes important?" : "b) It leads to better economic productivity and improved health outcomes" -> "It leads to better economic productivity and improved health"
+- `grade12/agriculture/agr15.html` Q14 "How is dietary diversity typically measured?" : "c) By recording women's consumption of different food items over a specific period" -> "By recording women's consumption of different food items ove"
+- `grade12/agriculture/agr15.html` Q15 "What are the five domains of empowerment in food consumption mentioned" : "a) Decision-making about agricultural production, access to productive resources, control of income, leadership in the community, and time allocation" -> "Decision-making about agricultural production, access to pro"
+- `grade12/agriculture/agr16.html` Q1 "What are the four primary categories of food safety hazards?" : "a) Biological, chemical, physical, and nutritional" -> "Biological, chemical, physical, and nutritional"
+- `grade12/agriculture/agr16.html` Q2 "What are biological hazards in relation to food safety?" : "a) Contamination of food by microorganisms" -> "Contamination of food by microorganisms"
+- `grade12/agriculture/agr16.html` Q3 "Which category of food safety hazards includes foreign objects found i" : "c) Physical hazards" -> "Physical hazards"
+- `grade12/agriculture/agr16.html` Q4 "What are some potential sources of food contamination mentioned in the" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr16.html` Q5 "How can chemical contamination occur in food?" : "a) Through accidental mixing of chemicals with food supplies" -> "Through accidental mixing of chemicals with food supplies"
+- `grade12/agriculture/agr16.html` Q6 "Why is food safety important in relation to nutrition?" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr16.html` Q7 "What are some potential consequences of consuming unsafe food?" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr16.html` Q8 "What is the significance of farmers' indigenous pest management knowle" : "a) It helps prevent post-harvest losses and ensures food security" -> "It helps prevent post-harvest losses and ensures food securi"
+- `grade12/agriculture/agr16.html` Q9 "How do farmers reduce post-harvest losses according to indigenous know" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr16.html` Q10 "What are some examples of traditional storage structures mentioned in " : "a) Structures made of locally available materials" -> "Structures made of locally available materials"
+- `grade12/agriculture/agr16.html` Q11 "Why is underground pit storage common in some parts of Ethiopia?" : "b) It provides better protection against grain pests" -> "It provides better protection against grain pests"
+- `grade12/agriculture/agr16.html` Q12 "What is a gombissa?" : "b) An underground pit used for storing grains such as sorghum and maize" -> "An underground pit used for storing grains such as sorghum a"
+- `grade12/agriculture/agr16.html` Q13 "What are botanicals in the context of grain storage?" : "a) Chemicals produced by plants that repel insects" -> "Chemicals produced by plants that repel insects"
+- `grade12/agriculture/agr16.html` Q14 "How is wood ash used in grain storage?" : "b) It is used as a botanical pesticide against maize storage insect pests" -> "It is used as a botanical pesticide against maize storage in"
+- `grade12/agriculture/agr16.html` Q15 "How do farmers in Ethiopia protect teff grain from insect pests in sto" : "c) By using botanicals and wood ash as natural pesticides" -> "By using botanicals and wood ash as natural pesticides"
+- `grade12/agriculture/agr17.html` Q1 "What are some challenges faced by smallholder farmers in the developin" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr17.html` Q2 "How can ICT improve agriculture?" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr17.html` Q3 "Why is ICT important for farmers in rural areas?" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr17.html` Q4 "What is the role of knowledge management in agriculture?" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr17.html` Q5 "How can the wider audience access new agricultural knowledge?" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr17.html` Q6 "What is electronic-agriculture?" : "b) A concept that aims to enhance agricultural and rural development through improved information and communication processes" -> "A concept that aims to enhance agricultural and rural develo"
+- `grade12/agriculture/agr17.html` Q7 "How has mobile telephone usage impacted agricultural extension in Ethi" : "a) It has provided affordable and fast access to information including technologies, markets, and weather forecasts" -> "It has provided affordable and fast access to information in"
+- `grade12/agriculture/agr17.html` Q8 "What is the main concern and emerging subject in agriculture worldwide" : "b) Sustainable farming practices" -> "Sustainable farming practices"
+- `grade12/agriculture/agr17.html` Q9 "Which of the following technologies or tools have contributed to an ag" : "d) All of the above" -> "All of the above"
+- `grade12/agriculture/agr17.html` Q10 "What is remote sensing used for in agriculture?" : "d) Mapping crop growth and health" -> "Mapping crop growth and health"
+- `grade12/agriculture/agr17.html` Q11 "What are the three categories of challenges that prevent the maximum b" : "a) Technology, capacity, and content" -> "Technology, capacity, and content"
+- `grade12/agriculture/agr17.html` Q12 "What is one challenge related to technology in the application of ICT " : "b) Insufficient technological advancements in developing countries" -> "Insufficient technological advancements in developing countr"
+- `grade12/agriculture/agr17.html` Q13 "How can limited individual capacity in using ICT be addressed?" : "b) By providing training and capacity development for farmers" -> "By providing training and capacity development for farmers"
+- `grade12/agriculture/agr17.html` Q14 "What is one solution to address the lack of relevant content for ICT i" : "a) Developing an 'ecosystem' of information and data" -> "Developing an 'ecosystem' of information and data"
+- `grade12/agriculture/agr17.html` Q15 "What are some characteristics of information that should be provided t" : "a) Up-to-date, relevant, and in local languages" -> "Up-to-date, relevant, and in local languages"
+- `grade11/english/grade 11 sq/ict g11 u2.html` Q9 "What is the difference between augmented reality and virtual reality?" : "(a) Augmented reality overlays computer-generated images on the real world, while virtual reality creates a completely virtual world" -> "Augmented reality overlays computer-generated images on the "
+- `grade11/english/grade 11 sq/ict g11 u6.html` Q5 "What is a low-level programming language?" : "(b) A language that is closer to machine language and more difficult to understand" -> "A language that is closer to machine language and more diffi"
+
+## Source files repaired (3)
+
+- grade11/english/grade 11 sq/phy g11 u2 (1).html: missing ":" after answer
+- grade11/english/grade 11 sq/phy g11 u2 - Copy.html: missing ":" after answer
+- grade11/english/grade 11 sq/phy g11 u2.html: missing ":" after answer
+
+## Questions dropped (0)
+
+
+## Files that could not be read (2)
+
+- grade11/history/his6.html: Unexpected token '<'
+- grade9/history/his6.html: Unexpected token '<'
+
+## Duplicate files not imported twice (70)
+
+- grade11/physics/phy6.html -> same content as g11-physics-u2
+- grade11/chemistry/che2.html -> same content as g11-chemistry-u1
+- grade12/physics/phy6.html -> same content as g12-physics-u2
+- grade12/geography/geo7.html -> same content as g12-geography-u1
+- grade12/history/his7.html -> same content as g12-history-u5
+- grade11/agriculture/previous.html -> same content as g11-agriculture-x1
+- grade11/agriculture/squ2025 4.html -> same content as g11-agriculture-x3
+- grade11/english/grade 11 sq/ict g11 u3.html -> same content as g11-it-u3
+- grade11/english/grade 11 sq/phy g11 u2 - Copy.html -> same content as g11-physics-x11
+- grade11/english/grade 11 sq/phy g11 u2.html -> same content as g11-physics-x11
+- grade11/english/grade 11 sq/phy g11 u7.html -> same content as g11-physics-x14
+- grade11/it/ict g11 u1.html -> same content as g11-it-x5
+- grade11/it/ict g11 u2.html -> same content as g11-it-x6
+- grade11/it/ict g11 u4.html -> same content as g11-it-x8
+- grade11/it/ict g11 u5.html -> same content as g11-it-x9
+- grade11/it/ict g11 u6.html -> same content as g11-it-x10
+- grade11/physics/phy7.html -> same content as g11-physics-x14
+- grade11/agriculture/previous.html -> same content as g11-agriculture-x1
+- grade11/agriculture/squ2025 4.html -> same content as g11-agriculture-x3
+- grade11/chemistry/che2.html -> same content as g11-chemistry-u1
+- grade11/english/grade 11 sq/che 11 u1.html -> same content as g11-chemistry-u1
+- grade11/english/grade 11 sq/che 11 u2.html -> same content as g11-chemistry-u1
+- grade11/english/grade 11 sq/che 11 u3.html -> same content as g11-chemistry-u3
+- grade11/english/grade 11 sq/che 11 u4.html -> same content as g11-chemistry-u4
+- grade11/english/grade 11 sq/che 11 u5.html -> same content as g11-chemistry-u5
+- grade11/english/grade 11 sq/che 11 u6.html -> same content as g11-chemistry-u6
+- grade11/english/grade 11 sq/eng g11 u1.html -> same content as g11-english-u1
+- grade11/english/grade 11 sq/eng g11 u2.html -> same content as g11-english-u2
+- grade11/english/grade 11 sq/eng g11 u3.html -> same content as g11-english-u3
+- grade11/english/grade 11 sq/eng g11 u4.html -> same content as g11-english-u4
+- grade11/english/grade 11 sq/eng g11 u5.html -> same content as g11-english-u5
+- grade11/english/grade 11 sq/eng g11 u6.html -> same content as g11-english-u6
+- grade11/english/grade 11 sq/ict g11 u3.html -> same content as g11-it-u3
+- grade11/english/grade 11 sq/phy g11 u1 (1).html -> same content as g11-physics-u1
+- grade11/english/grade 11 sq/phy g11 u1 - Copy.html -> same content as g11-physics-u1
+- grade11/english/grade 11 sq/phy g11 u1.html -> same content as g11-physics-u1
+- grade11/english/grade 11 sq/phy g11 u2 - Copy.html -> same content as g11-physics-x11
+- grade11/english/grade 11 sq/phy g11 u2.html -> same content as g11-physics-x11
+- grade11/english/grade 11 sq/phy g11 u3 (1).html -> same content as g11-physics-u3
+- grade11/english/grade 11 sq/phy g11 u3 - Copy.html -> same content as g11-physics-u3
+- grade11/english/grade 11 sq/phy g11 u3.html -> same content as g11-physics-u3
+- grade11/english/grade 11 sq/phy g11 u4 (1).html -> same content as g11-physics-u4
+- grade11/english/grade 11 sq/phy g11 u4.html -> same content as g11-physics-u4
+- grade11/english/grade 11 sq/phy g11 u5 (1).html -> same content as g11-physics-u5
+- grade11/english/grade 11 sq/phy g11 u5.html -> same content as g11-physics-u5
+- grade11/english/grade 11 sq/phy g11 u6 (1).html -> same content as g11-physics-u2
+- grade11/english/grade 11 sq/phy g11 u6.html -> same content as g11-physics-u2
+- grade11/english/grade 11 sq/phy g11 u7.html -> same content as g11-physics-x14
+- grade11/english/grade 12 sq/che g12 u1.html -> same content as g12-chemistry-u1
+- grade11/english/grade 12 sq/che g12 u2.html -> same content as g12-chemistry-u2
+- grade11/english/grade 12 sq/che g12 u3.html -> same content as g12-chemistry-u3
+- grade11/english/grade 12 sq/che g12 u4.html -> same content as g12-chemistry-u4
+- grade11/english/grade 12 sq/che g12 u5.html -> same content as g12-chemistry-u5
+- grade11/english/grade 12 sq/eng g12 u1.html -> same content as g12-english-u1
+- grade11/english/grade 12 sq/eng g12 u2.html -> same content as g12-english-u2
+- grade11/english/grade 12 sq/eng g12 u3.html -> same content as g12-english-u3
+- grade11/english/grade 12 sq/eng g12 u4.html -> same content as g12-english-u4
+- grade11/english/grade 12 sq/eng g12 u5.html -> same content as g12-english-u5
+- grade11/english/grade 12 sq/eng g12 u6.html -> same content as g12-english-u6
+- grade11/it/ict g11 u1.html -> same content as g11-it-x5
+- grade11/it/ict g11 u2.html -> same content as g11-it-x6
+- grade11/it/ict g11 u4.html -> same content as g11-it-x8
+- grade11/it/ict g11 u5.html -> same content as g11-it-x9
+- grade11/it/ict g11 u6.html -> same content as g11-it-x10
+- grade11/physics/phy6.html -> same content as g11-physics-u2
+- grade11/physics/phy7.html -> same content as g11-physics-x14
+- grade12/geography/geo7.html -> same content as g12-geography-u1
+- grade12/history/his7.html -> same content as g12-history-u5
+- grade12/physics/phy6.html -> same content as g12-physics-u2
+- grade12/physics/phy7.html -> same content as g11-physics-x14
