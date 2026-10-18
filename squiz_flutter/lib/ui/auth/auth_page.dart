@@ -311,30 +311,32 @@ class _AuthPageState extends State<AuthPage> {
                     ),
 
                   // Error Display Banner
-                  AnimatedSize(
-                    duration: Motion.d(context, 200),
-                    child: _errorMessage == null
-                        ? const SizedBox.shrink()
-                        : Container(
-                            margin: const EdgeInsets.only(top: 16),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: context.sq.bad.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: context.sq.bad.withValues(alpha: 0.3)),
+                 AnimatedContainer(
+                      duration: Motion.d(context, 200),
+                      curve: Curves.easeOutCubic,
+                      height: _errorMessage == null ? 0 : null, // Smoothly collapses height to 0
+                      child: _errorMessage == null
+                          ? const SizedBox.shrink()
+                          : Container(
+                              margin: const EdgeInsets.only(top: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: context.sq.bad.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: context.sq.bad.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.error_outline_rounded, color: context.sq.bad, size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(_errorMessage!, style: TextStyle(color: context.sq.bad, fontSize: 13)),
+                                  ),
+                                ],
+                              ),
                             ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.error_outline_rounded, color: context.sq.bad, size: 20),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(_errorMessage!, style: TextStyle(color: context.sq.bad, fontSize: 13)),
-                                ),
-                              ],
-                            ),
-                          ),
-                  ),
-                  const SizedBox(height: 24),
+                    ),
+                    const SizedBox(height: 24),
 
                   // Primary Submit Button
                   SizedBox(

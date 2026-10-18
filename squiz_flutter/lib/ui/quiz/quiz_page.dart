@@ -242,15 +242,19 @@ class _QuestionView extends StatelessWidget {
               },
             ),
           ),
-        AnimatedSize(
+       AnimatedContainer(
           duration: Motion.d(context, 260),
           curve: Curves.easeOutCubic,
+          height: reveal ? null : 0, // Collapses cleanly when not revealed
           alignment: Alignment.topCenter,
-          child: reveal ? _Feedback(q: q, correct: chosen == q.answer) : const SizedBox(width: double.infinity),
+          child: ClipRect(
+            child: reveal ? _Feedback(q: q, correct: chosen == q.answer) : const SizedBox.shrink(),
+          ),
         ),
       ],
     );
   }
+
 
   _OptState _stateFor(int i, Question q, int? chosen, bool reveal) {
     if (reveal) {
