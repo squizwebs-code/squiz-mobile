@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
         resp.headers.setdefault("X-Frame-Options", "DENY")
-        if request.url.path.startswith("/admin-ui"):
+        if request.url.path.startswith("/admin"):
             resp.headers["Content-Security-Policy"] = (
                 "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
                 "script-src 'self'; connect-src 'self'; frame-ancestors 'none'"
@@ -131,6 +131,7 @@ def create_app() -> FastAPI:
         except Exception as e:
             log.exception("Failed to create database tables on startup: %s", e)
 
+    # Include API routers first so explicit endpoints (like /admin/auth/login) take precedence
     for r in (
         auth.router,
         content.router,
@@ -144,9 +145,12 @@ def create_app() -> FastAPI:
 
     os.makedirs(cfg.upload_dir, exist_ok=True)
     app.mount("/media", StaticFiles(directory=cfg.upload_dir), name="media")
+    
+    # Mount the admin UI dashboard at /admin (fallback for browser navigation)
     ui = os.path.join(os.path.dirname(__file__), "admin_ui")
     if os.path.isdir(ui):
-        app.mount("/admin-ui", StaticFiles(directory=ui, html=True), name="admin-ui")
+        app.mount("/admin", StaticFiles(directory=ui, html=True), name="admin")
+        
     return app
 
 
