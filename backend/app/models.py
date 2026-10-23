@@ -1,7 +1,7 @@
 """SQLAlchemy models. Hierarchy: Grade -> (GradeSubject) Subject -> Unit -> Question -> AnswerOption.
 
 History is preserved by snapshotting questions into SessionQuestion at quiz start, so editing,
-archiving or soft-deleting a question never changes past results.
+archiving or soft-editing a question never changes past results.
 """
 import enum
 from datetime import datetime, timezone
@@ -25,6 +25,7 @@ class Role(str, enum.Enum):
 class AccountStatus(str, enum.Enum):
     active = "active"
     inactive = "inactive"
+    suspended = "suspended"
 
 
 class Difficulty(str, enum.Enum):
@@ -57,15 +58,26 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     full_name: Mapped[str] = mapped_column(String(120))
     name_key: Mapped[str] = mapped_column(String(120), index=True)          # casefolded, whitespace-collapsed full name
-    phone: Mapped[str] = mapped_column(String(20), unique=True)              # normalized E.164
+    phone: Mapped[str] = mapped_column(String(20), unique=True)             # normalized E.164
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[Role] = mapped_column(Enum(Role, name="role"), default=Role.student)
     status: Mapped[AccountStatus] = mapped_column(Enum(AccountStatus, name="account_status"), default=AccountStatus.active)
     selected_grade: Mapped[int | None] = mapped_column(Integer, nullable=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+    # New Admin Governance, Promotion Chain & Suspension Fields
+    is_owner: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    promoted_by_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    suspend_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    suspend_end_date: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+    token_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False) # Instant JWT revocation on suspend/logout
+    
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
     last_active_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
+
+    # Relationships for Promotion Hierarchy
+    promoted_by = relationship("User", remote_side=[id], backref="promoted_admins")
 
 
 class RefreshToken(Base):
@@ -86,6 +98,8 @@ class Grade(Base):
     number: Mapped[int] = mapped_column(Integer, unique=True)
     name: Mapped[str] = mapped_column(String(60))
     published: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     subject_links: Mapped[list["GradeSubject"]] = relationship(back_populates="grade", cascade="all, delete-orphan")
 
 
@@ -96,6 +110,8 @@ class Subject(Base):
     name: Mapped[str] = mapped_column(String(80))
     icon: Mapped[str | None] = mapped_column(String(40), nullable=True)
     published: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     grade_links: Mapped[list["GradeSubject"]] = relationship(back_populates="subject", cascade="all, delete-orphan")
 
 
@@ -115,9 +131,11 @@ class Unit(Base):
     grade_id: Mapped[int] = mapped_column(ForeignKey("grades.id", ondelete="CASCADE"))
     subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id", ondelete="CASCADE"))
     title: Mapped[str] = mapped_column(String(120))
-    kind: Mapped[str] = mapped_column(String(10), default="unit")           # unit | extra | quick
+    kind: Mapped[str] = mapped_column(String(10), default="unit")          # unit | extra | quick
     position: Mapped[int] = mapped_column(Integer, default=0)
     published: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
     grade: Mapped[Grade] = relationship()
     subject: Mapped[Subject] = relationship()
@@ -137,6 +155,7 @@ class Question(Base):
     status: Mapped[PublishStatus] = mapped_column(Enum(PublishStatus, name="publish_status"), default=PublishStatus.draft, index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     source_ref: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(TS, default=utcnow, onupdate=utcnow)
     deleted_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)  # soft delete keeps history intact
@@ -181,8 +200,8 @@ class SessionQuestion(Base):
     session_id: Mapped[int] = mapped_column(ForeignKey("quiz_sessions.id", ondelete="CASCADE"), index=True)
     question_id: Mapped[int | None] = mapped_column(Integer, nullable=True)  # plain int: survives deletion of the question
     position: Mapped[int] = mapped_column(Integer)
-    snapshot: Mapped[dict] = mapped_column(JSON)                              # {text, explanation, image_url, options:[{id,text,is_correct}], version}
-    option_order: Mapped[list] = mapped_column(JSON)                          # option ids in display order
+    snapshot: Mapped[dict] = mapped_column(JSON)                             # {text, explanation, image_url, options:[{id,text,is_correct}], version}
+    option_order: Mapped[list] = mapped_column(JSON)                        # option ids in display order
     selected_option_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     answered_at: Mapped[datetime | None] = mapped_column(TS, nullable=True)
@@ -243,6 +262,29 @@ class AuditLog(Base):
     details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
     created_at: Mapped[datetime] = mapped_column(TS, default=utcnow, index=True)
+
+
+class ImportBatch(Base):
+    """Tracks batch question uploads via Excel with full undo/rollback support."""
+    __tablename__ = "import_batches"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    admin_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    total_rows: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    imported_rows: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="draft", nullable=False)  # draft, committed, rolled_back
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow, nullable=False)
+
+
+class ContentProblemReport(Base):
+    """Student flags for incorrect questions or answers reported from the mobile app."""
+    __tablename__ = "content_problem_reports"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_id: Mapped[int] = mapped_column(ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, index=True)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False)  # pending, resolved, dismissed
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow, nullable=False)
 
 
 class AppSetting(Base):
