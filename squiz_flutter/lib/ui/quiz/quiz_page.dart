@@ -7,6 +7,7 @@ import '../../data/bank.dart';
 import '../../state/quiz_controller.dart';
 import '../app_scope.dart';
 import '../widgets/common.dart';
+import '../matric/matric.dart';
 import 'result_page.dart';
 
 class QuizPage extends StatefulWidget {
@@ -206,6 +207,7 @@ class _QuestionView extends StatelessWidget {
               icon: Icon(app.isBookmarked(q.key) ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, color: app.isBookmarked(q.key) ? context.cs.primary : null),
               onPressed: () => app.toggleBookmark(q),
             ),
+            IconButton(tooltip: 'Report a problem with this question', icon: const Icon(Icons.report_gmailerrorred_rounded), onPressed: () => showReportSheet(context, q)),
             IconButton(
               tooltip: app.isFlagged(q.key) ? 'Remove flag' : 'Flag as difficult',
               icon: Icon(app.isFlagged(q.key) ? Icons.flag_rounded : Icons.outlined_flag_rounded, color: app.isFlagged(q.key) ? kWarn : null),
@@ -242,19 +244,15 @@ class _QuestionView extends StatelessWidget {
               },
             ),
           ),
-       AnimatedContainer(
+        AnimatedSize(
           duration: Motion.d(context, 260),
           curve: Curves.easeOutCubic,
-          height: reveal ? null : 0, // Collapses cleanly when not revealed
           alignment: Alignment.topCenter,
-          child: ClipRect(
-            child: reveal ? _Feedback(q: q, correct: chosen == q.answer) : const SizedBox.shrink(),
-          ),
+          child: reveal ? _Feedback(q: q, correct: chosen == q.answer) : const SizedBox(width: double.infinity),
         ),
       ],
     );
   }
-
 
   _OptState _stateFor(int i, Question q, int? chosen, bool reveal) {
     if (reveal) {

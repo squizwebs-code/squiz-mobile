@@ -7,7 +7,8 @@ const sampleBankJson = {
   'generated': 'test',
   'subjects': [
     {'id': 'math', 'name': 'Mathematics'},
-    {'id': 'bio', 'name': 'Biology'},
+    {'id': 'bio', 'name': 'Biology', 't': 'natural'},
+    {'id': 'geo', 'name': 'Geography', 't': 'social'},
   ],
   'units': [
     {
@@ -23,6 +24,12 @@ const sampleBankJson = {
       'qs': [
         {'id': 'c', 'k': 'kc', 'q': 'Powerhouse?', 'o': ['Nucleus', 'Mitochondria'], 'a': 1},
         {'id': 'a2', 'k': 'ka', 'q': '1+1?', 'o': ['1', '2', '3'], 'a': 1}, // same content key as "a": counted once
+      ],
+    },
+    {
+      'id': 'u3', 'subject': 'geo', 'grade': 11, 'no': 1, 'title': 'Maps', 'kind': 'unit',
+      'qs': [
+        {'id': 'g1', 'k': 'kg1', 'q': 'Capital of Ethiopia?', 'o': ['Addis Ababa', 'Adama'], 'a': 0},
       ],
     },
   ],

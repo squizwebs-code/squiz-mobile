@@ -110,9 +110,9 @@ def test_import_validate_commit_duplicates_and_export_roundtrip(client, admin_h)
     assert body["summary"]["ok"] == 1 and body["summary"]["errors"] == 1 and body["summary"]["duplicates"] == 1
     cm = client.post("/admin/questions/import/commit", files={"file": ("q.csv", csv.encode(), "text/csv")}, data={"create_missing": "true"}, headers=admin_h)
     assert cm.status_code == 200, cm.text
-    assert cm.json()["created"]["questions"] == 1
+    assert cm.json()["created"]["created"] == 1
     again = client.post("/admin/questions/import/commit", files={"file": ("q.csv", csv.encode(), "text/csv")}, data={"create_missing": "true"}, headers=admin_h)
-    assert again.json()["created"]["questions"] == 0                           # duplicates are not re-created
+    assert again.json()["created"]["created"] == 0                           # duplicates are not re-created
     ex = client.get("/admin/questions/export", params={"format": "json"}, headers=admin_h)
     assert ex.status_code == 200 and "9 x 9" in ex.text
 

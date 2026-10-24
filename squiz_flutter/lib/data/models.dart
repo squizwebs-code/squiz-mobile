@@ -32,12 +32,24 @@ class HistoryItem {
 }
 
 class AccountUser {
-  const AccountUser({required this.id, required this.fullName, required this.phone, this.grade, this.mustChangePassword = false});
+  const AccountUser({required this.id, required this.fullName, required this.username, required this.phone, this.role = 'student', this.isOwner = false, this.grade, this.track, this.mustChangePassword = false});
   final int id;
-  final String fullName, phone;
+  final String fullName, username, phone, role;
+  final bool isOwner;
   final int? grade;
+  final String? track;
   final bool mustChangePassword;
-  factory AccountUser.fromJson(Map<String, dynamic> j) => AccountUser(id: j['id'] as int, fullName: j['full_name'] as String, phone: j['phone'] as String, grade: j['selected_grade'] as int?, mustChangePassword: j['must_change_password'] == true);
+  bool get isAdmin => role == 'admin';
+  factory AccountUser.fromJson(Map<String, dynamic> j) => AccountUser(
+      id: j['id'] as int,
+      fullName: j['full_name'] as String,
+      username: (j['username'] ?? '') as String,
+      phone: j['phone'] as String,
+      role: (j['role'] ?? 'student') as String,
+      isOwner: j['is_owner'] == true,
+      grade: j['selected_grade'] as int?,
+      track: j['selected_track'] as String?,
+      mustChangePassword: j['must_change_password'] == true);
   String get initials {
     final parts = fullName.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '?';

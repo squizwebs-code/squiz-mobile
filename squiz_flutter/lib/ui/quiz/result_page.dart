@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../matric/matric.dart';
 import '../../core/brand.dart';
 import '../../core/motion.dart';
 import '../../core/theme.dart';
@@ -95,6 +96,7 @@ class _ResultPageState extends State<ResultPage> {
                 ],
                 Expanded(child: FilledButton(onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst), child: const Text('Done'))),
               ]),
+              _BySubject(summary: s),
               const SectionHeader('Review your answers'),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -168,6 +170,7 @@ class _ReviewCard extends StatelessWidget {
               icon: Icon(app.isBookmarked(q.key) ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, color: app.isBookmarked(q.key) ? context.cs.primary : null),
               onPressed: () => app.toggleBookmark(q),
             ),
+            IconButton(tooltip: 'Report a problem', icon: const Icon(Icons.report_gmailerrorred_rounded), onPressed: () => showReportSheet(context, q)),
           ]),
           const SizedBox(height: 4),
           Text(q.text, style: context.tt.titleSmall?.copyWith(height: 1.35)),
@@ -202,5 +205,45 @@ class _ReviewCard extends StatelessWidget {
         ]),
       ),
     );
+  }
+}
+
+
+/// Score for each subject, shown for mixed sessions such as a Matric mock exam.
+class _BySubject extends StatelessWidget {
+  const _BySubject({required this.summary});
+  final QuizSummary summary;
+  @override
+  Widget build(BuildContext context) {
+    final groups = <String, List<QuestionResult>>{};
+    for (final r in summary.results) {
+      groups.putIfAbsent(r.question.subject, () => []).add(r);
+    }
+    if (groups.length < 2) return const SizedBox.shrink();
+    final bank = context.app.bank;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SectionHeader('By subject'),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            for (final e in groups.entries)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(children: [
+                  SizedBox(width: 110, child: Text(bank?.subjectName(e.key) ?? e.key, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.tt.labelLarge)),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: LinearProgressIndicator(value: e.value.where((r) => r.correct).length / e.value.length, minHeight: 10, color: subjectColor(e.key), backgroundColor: context.cs.surfaceContainerHigh),
+                    ),
+                  ),
+                  SizedBox(width: 64, child: Text('${e.value.where((r) => r.correct).length}/${e.value.length}', textAlign: TextAlign.right, style: context.tt.labelLarge)),
+                ]),
+              ),
+          ]),
+        ),
+      ),
+    ]);
   }
 }

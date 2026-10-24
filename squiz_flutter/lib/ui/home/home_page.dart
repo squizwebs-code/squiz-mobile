@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../state/app_state.dart';
 import '../app_scope.dart';
 import '../browse/subject_page.dart';
+import '../matric/matric.dart';
 import '../practice/exam_sheet.dart';
 import '../quiz/launcher.dart';
 import '../shell.dart';
@@ -40,22 +41,27 @@ class HomePage extends StatelessWidget {
       ],
       slivers: [
         SliverList.list(children: [
-          StaggeredIn(index: 0, child: _Hero(greeting: first == null ? _greeting() : '${_greeting()}, $first', grade: app.grade, questions: bank.questionsFor(app.grade).length)),
+          StaggeredIn(index: 0, child: _Hero(greeting: first == null ? _greeting() : '${_greeting()}, $first', grade: app.grade, track: app.effectiveTrack, questions: bank.questionsFor(app.grade).length)),
+          if (app.announcements.isNotEmpty) ...[const SizedBox(height: 14), const AnnouncementsCard()],
+          if (app.examDate != null) ...[const SizedBox(height: 14), const ExamCountdownCard()],
           if (app.resumable != null) ...[const SizedBox(height: 14), StaggeredIn(index: 1, child: _ResumeCard(app: app))],
           const SizedBox(height: 14),
           StaggeredIn(index: 2, child: _ProgressCard(app: app)),
+          const SizedBox(height: 14),
+          const ReadinessCard(),
           if (weak != null) ...[const SizedBox(height: 14), StaggeredIn(index: 3, child: _WeakCard(stat: weak))],
           const SectionHeader('Quick start'),
           SizedBox(
             height: 112,
             child: ListView(scrollDirection: Axis.horizontal, clipBehavior: Clip.none, children: [
               _QuickAction(icon: Icons.shuffle_rounded, title: 'Mixed practice', sub: '20 random questions', onTap: () => QuizLauncher.practice(context, title: 'Mixed practice', questions: bank.questionsFor(app.grade), count: 20)),
+              _QuickAction(icon: Icons.workspace_premium_rounded, title: app.grade >= 11 ? 'Matric mock exam' : 'Mock exam', sub: 'All subjects, timed', onTap: () => showMockExamSheet(context)),
               _QuickAction(icon: Icons.timer_rounded, title: 'Take an exam', sub: 'Timed, graded at the end', onTap: () => showExamSheet(context, title: 'Mixed exam', questions: bank.questionsFor(app.grade))),
               _QuickAction(icon: Icons.refresh_rounded, title: 'Fix mistakes', sub: mistakes.isEmpty ? 'Nothing to fix yet' : '${mistakes.length} to review', onTap: mistakes.isEmpty ? null : () => QuizLauncher.practice(context, title: 'Mistakes', questions: mistakes)),
               _QuickAction(icon: Icons.flash_on_rounded, title: 'Quick 10', sub: 'Ten random questions', onTap: () => QuizLauncher.practice(context, title: 'Quick 10', questions: bank.questionsFor(app.grade), count: 10)),
             ]),
           ),
-          SectionHeader('Subjects', subtitle: 'Grade ${app.grade}', action: 'See all', onAction: () => AppShellState.of(context)?.goTo(1)),
+          SectionHeader('Subjects', subtitle: app.effectiveTrack == null ? 'Grade ${app.grade}' : 'Grade ${app.grade} · ${trackName(app.effectiveTrack)}', action: 'See all', onAction: () => AppShellState.of(context)?.goTo(1)),
         ]),
         SliverList.builder(
           itemCount: stats.length,
@@ -83,9 +89,10 @@ class _SyncDot extends StatelessWidget {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.greeting, required this.grade, required this.questions});
+  const _Hero({required this.greeting, required this.grade, required this.questions, this.track});
   final String greeting;
   final int grade, questions;
+  final String? track;
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
@@ -109,7 +116,7 @@ class _Hero extends StatelessWidget {
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     const Icon(Icons.school_rounded, size: 16, color: Colors.white),
                     const SizedBox(width: 6),
-                    Text('Grade $grade', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                    Text(track == null ? 'Grade $grade' : 'Grade $grade · ${trackName(track)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
                     const Icon(Icons.expand_more_rounded, size: 18, color: Colors.white),
                   ]),
                 ),

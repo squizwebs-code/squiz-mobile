@@ -1,7 +1,7 @@
 name: squiz
-description: SQUIZ - smart quiz and exam practice for Ethiopian students, Grades 9-12.
+description: SQUIZ - Matric exam preparation and quizzes for Ethiopian students, Grades 9-12, with an administrator mode.
 publish_to: none
-version: 2.0.0+2
+version: 3.0.0+3
 
 environment:
   sdk: ">=3.6.0 <4.0.0"
@@ -14,6 +14,7 @@ dependencies:
   path_provider: ^2.1.4
   dio: ^5.7.0
   flutter_secure_storage: ^9.2.2
+  file_picker: ^8.1.2
 
 dev_dependencies:
   flutter_test:

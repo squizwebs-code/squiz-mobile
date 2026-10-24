@@ -11,7 +11,7 @@ Future<void> main() async {
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
   final prefs = await SharedPreferences.getInstance();
   final api = Api(TokenStore());
-  final state = AppState(prefs: prefs, bankRepo: BankRepository(), auth: AuthApi(api), syncApi: SyncApi(api));
+  final state = AppState(prefs: prefs, bankRepo: BankRepository(), auth: AuthApi(api), syncApi: SyncApi(api), admin: AdminApi(api));
   api.onSessionExpired = () => state.sessionExpired();
   runApp(SquizApp(state: state));
   await state.init();

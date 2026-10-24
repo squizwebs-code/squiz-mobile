@@ -4,6 +4,7 @@ import '../../core/motion.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
 import '../app_scope.dart';
+import '../matric/matric.dart';
 import '../quiz/launcher.dart';
 import '../widgets/common.dart';
 
@@ -39,6 +40,26 @@ class _PracticePageState extends State<PracticePage> {
       subtitle: 'Build a session that fits the time you have.',
       slivers: [
         SliverList.list(children: [
+          Card(
+            color: context.sq.soft,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => showMockExamSheet(context),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(children: [
+                  CircleAvatar(backgroundColor: kBrand, child: const Icon(Icons.workspace_premium_rounded, color: kOnBrand)),
+                  const SizedBox(width: 14),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(app.grade >= 11 ? 'Matric mock exam' : 'Full mock exam', style: context.tt.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                    Text('Questions from every subject in one timed paper, with a score per subject.', style: context.tt.bodySmall),
+                  ])),
+                  const Icon(Icons.chevron_right_rounded),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           const SectionHeader('Subject'),
           SizedBox(
             height: 44,

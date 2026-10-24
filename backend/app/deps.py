@@ -28,6 +28,10 @@ def _load_user(request: Request, creds: HTTPAuthorizationCredentials | None, db:
         raise err(401, "invalid_token", "Invalid sign-in token.")
     user = db.get(User, int(data["sub"]))
     # Role and status always come from the database, never from the token or the client.
+    if user is not None:
+        from .accounts import lift_expired_suspension
+        if lift_expired_suspension(user):
+            db.commit()
     if user is None or user.status != AccountStatus.active:
         raise err(401, "account_unavailable", "This account is not available.")
     now = utcnow()

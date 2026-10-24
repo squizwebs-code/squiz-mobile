@@ -4,6 +4,7 @@ import '../core/motion.dart';
 import '../core/theme.dart';
 import 'app_scope.dart';
 import 'auth/auth_page.dart';
+import 'matric/matric.dart';
 import 'widgets/common.dart';
 
 /// First launch: pick a grade. (Signing in is optional and can be done later.)
@@ -15,6 +16,7 @@ class OnboardingPage extends StatefulWidget {
 
 class _OnboardingState extends State<OnboardingPage> {
   int? _grade;
+  String? _track; // Matric stream, asked for grades 11 and 12
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +36,7 @@ class _OnboardingState extends State<OnboardingPage> {
               const SizedBox(height: 28),
               StaggeredIn(index: 1, child: Text('Learn. Practise.\nImprove.', style: context.tt.displayMedium?.copyWith(height: 1.05))),
               const SizedBox(height: 12),
-              StaggeredIn(index: 2, child: Text('Practice questions and timed exams for Ethiopian high school students. Works offline.', style: context.tt.bodyLarge?.copyWith(color: context.cs.onSurfaceVariant))),
+              StaggeredIn(index: 2, child: Text('Matric exam preparation and practice for Grades 9–12, with timed mock exams. Works offline.', style: context.tt.bodyLarge?.copyWith(color: context.cs.onSurfaceVariant))),
               const SizedBox(height: 28),
               StaggeredIn(index: 3, child: Text('Which grade are you in?', style: context.tt.titleMedium)),
               const SizedBox(height: 12),
@@ -53,8 +55,31 @@ class _OnboardingState extends State<OnboardingPage> {
                     ),
                 ],
               ),
+              AnimatedSize(
+                duration: Motion.d(context, 250),
+                alignment: Alignment.topCenter,
+                child: (_grade ?? 0) >= 11 && app.bank?.hasTracks == true
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Which Matric stream?', style: context.tt.titleMedium),
+                          const SizedBox(height: 4),
+                          Text('We will show the subjects for your stream. You can change this any time.', style: context.tt.bodySmall?.copyWith(color: context.cs.onSurfaceVariant)),
+                          const SizedBox(height: 12),
+                          TrackPicker(value: _track, onChanged: (t) => setState(() => _track = t)),
+                        ]),
+                      )
+                    : const SizedBox(width: double.infinity),
+              ),
               const SizedBox(height: 24),
-              FilledButton(onPressed: _grade == null ? null : () => app.setGrade(_grade!), child: const Text('Continue')),
+              FilledButton(
+                  onPressed: _grade == null
+                      ? null
+                      : () async {
+                          await app.setTrack((_grade! >= 11) ? _track : app.track);
+                          await app.setGrade(_grade!);
+                        },
+                  child: const Text('Continue')),
               const SizedBox(height: 8),
               TextButton(onPressed: () => pushPage(context, const AuthPage()), child: const Text('I already have an account')),
             ]),

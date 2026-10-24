@@ -8,11 +8,11 @@ void main() {
     test('drops questions whose answer index is outside the options', () {
       final b = sampleBank();
       expect(b.byKey.containsKey('kbad'), isFalse);
-      expect(b.byKey.keys.toSet(), {'ka', 'kb', 'kc'});
+      expect(b.byKey.keys.toSet(), {'ka', 'kb', 'kc', 'kg1'});
     });
     test('same content key across units is one question', () {
       final b = sampleBank();
-      expect(b.questionsFor(11).length, 3);
+      expect(b.questionsFor(11).length, 4);
       expect(b.questionsFor(11, subject: 'math').length, 2);
     });
     test('missing explanation stays empty', () {

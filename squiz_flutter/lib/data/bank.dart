@@ -4,9 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
+/// Matric stream a subject belongs to: 'natural', 'social', or 'all' (open to both).
 class Subject {
-  const Subject(this.id, this.name);
-  final String id, name;
+  const Subject(this.id, this.name, {this.track = 'all'});
+  final String id, name, track;
 }
 
 class Question {
@@ -60,10 +61,23 @@ class QuestionBank {
 
   String subjectName(String id) => subject(id)?.name ?? id;
 
+  /// The student's Matric stream ('natural' / 'social'), or null to show everything. Set by AppState; it only
+  /// affects grades 11 and 12. Saved items always still resolve through [byKey].
+  String? activeTrack;
+
+  bool _trackOk(String subjectId, int grade) {
+    final t = activeTrack;
+    if (t == null || grade < 11) return true;
+    final st = subject(subjectId)?.track ?? 'all';
+    return st == 'all' || st == t;
+  }
+
+  bool get hasTracks => subjects.any((s) => s.track != 'all');
+
   /// Units that apply to a grade. Grade 0 in the source means "all grades" (quick checks).
   List<UnitData> unitsFor(int grade, {String? subject}) => [
         for (final u in units)
-          if ((u.grade == grade || u.grade == 0) && (subject == null || u.subject == subject) && u.questions.isNotEmpty) u
+          if ((u.grade == grade || u.grade == 0) && (subject == null || u.subject == subject) && u.questions.isNotEmpty && _trackOk(u.subject, grade)) u
       ];
 
   List<Question> questionsFor(int grade, {String? subject, String? unit}) {
@@ -86,7 +100,7 @@ class QuestionBank {
   int countFor(int grade, String subject) => questionsFor(grade, subject: subject).length;
 
   factory QuestionBank.fromJson(Map<String, dynamic> j, BankSource source) {
-    final subjects = [for (final s in (j['subjects'] as List? ?? const [])) Subject(s['id'].toString(), (s['name'] ?? s['id']).toString())];
+    final subjects = [for (final s in (j['subjects'] as List? ?? const [])) Subject(s['id'].toString(), (s['name'] ?? s['id']).toString(), track: (s['t'] ?? 'all').toString())];
     final units = <UnitData>[];
     for (final raw in (j['units'] as List? ?? const [])) {
       final m = Map<String, dynamic>.from(raw as Map);

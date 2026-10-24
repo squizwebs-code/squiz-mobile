@@ -5,7 +5,7 @@ from typing import Generic, Literal, TypeVar
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .models import Difficulty, PublishStatus
-from .phone import PhoneError, normalize_phone
+from .phone import PhoneError, normalize_phone, normalize_username
 from .security import password_problem
 
 T = TypeVar("T")
@@ -25,6 +25,7 @@ class Orm(BaseModel):
 # ---------------- auth ----------------
 class RegisterIn(BaseModel):
     full_name: str = Field(min_length=1, max_length=120)
+    username: str = Field(min_length=1, max_length=30)
     phone: str
     password: str
     confirm_password: str
@@ -36,6 +37,11 @@ class RegisterIn(BaseModel):
         if len(v) < 2:
             raise ValueError("Full name must have at least 2 characters")
         return v
+
+    @field_validator("username")
+    @classmethod
+    def _username(cls, v: str) -> str:
+        return normalize_username(v)
 
     @field_validator("phone")
     @classmethod
@@ -56,7 +62,7 @@ class RegisterIn(BaseModel):
 
 
 class LoginIn(BaseModel):
-    identifier: str = Field(min_length=1, max_length=120)      # full name or phone number
+    identifier: str = Field(min_length=1, max_length=120)      # username or phone number
     password: str = Field(min_length=1, max_length=128)
 
 
@@ -80,10 +86,13 @@ class ChangePasswordIn(BaseModel):
 class UserOut(Orm):
     id: int
     full_name: str
+    username: str
     phone: str
     role: str
     status: str
+    is_owner: bool = False
     selected_grade: int | None
+    selected_track: str | None = None
     must_change_password: bool
     created_at: datetime
 
@@ -99,6 +108,13 @@ class TokenOut(BaseModel):
 class ProfileUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=120)
     selected_grade: int | None = Field(default=None, ge=1, le=12)
+    selected_track: Literal["natural", "social", "all"] | None = None
+    username: str | None = Field(default=None, max_length=30)
+
+    @field_validator("username")
+    @classmethod
+    def _un(cls, v: str | None) -> str | None:
+        return None if v is None else normalize_username(v)
 
 
 class DeleteAccountIn(BaseModel):
@@ -257,12 +273,14 @@ class SubjectIn(BaseModel):
     key: str = Field(min_length=2, max_length=40, pattern=r"^[a-z0-9_-]+$")
     name: str = Field(min_length=1, max_length=80)
     icon: str | None = Field(default=None, max_length=40)
+    track: Literal["all", "natural", "social"] = "all"
     published: bool = True
 
 
 class SubjectPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     icon: str | None = Field(default=None, max_length=40)
+    track: Literal["all", "natural", "social"] | None = None
     published: bool | None = None
 
 
@@ -282,6 +300,10 @@ class UnitPatch(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=120)
     kind: Literal["unit", "extra", "quick"] | None = None
     published: bool | None = None
+
+
+class SubjectReorderIn(BaseModel):
+    subject_ids: list[int] = Field(min_length=1)
 
 
 class ReorderIn(BaseModel):
@@ -358,3 +380,5 @@ class SettingsIn(BaseModel):
     default_grade: int | None = Field(default=None, ge=1, le=12)
     allow_name_change: bool | None = None
     tagline: str | None = Field(default=None, max_length=120)
+    exam_name: str | None = Field(default=None, max_length=80)
+    exam_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")      # the national exam day shown as a countdown in the app

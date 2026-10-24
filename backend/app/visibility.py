@@ -9,7 +9,8 @@ def visible_questions(grade_number: int | None = None, subject_id: int | None = 
          .join(Subject, Subject.id == Unit.subject_id)
          .join(GradeSubject, and_(GradeSubject.grade_id == Unit.grade_id, GradeSubject.subject_id == Unit.subject_id))
          .where(Question.status == PublishStatus.published, Question.deleted_at.is_(None), Unit.published.is_(True),
-                Grade.published.is_(True), Subject.published.is_(True), GradeSubject.published.is_(True)))
+                Grade.published.is_(True), Subject.published.is_(True), GradeSubject.published.is_(True),
+                Unit.archived_at.is_(None), Grade.archived_at.is_(None), Subject.archived_at.is_(None)))
     if grade_number is not None:
         q = q.where(Grade.number == grade_number)
     if subject_id is not None:
@@ -26,7 +27,8 @@ def visible_question_ids_subquery(**kw):
 def visible_units(grade_number: int | None = None, subject_id: int | None = None):
     q = (select(Unit).join(Grade, Grade.id == Unit.grade_id).join(Subject, Subject.id == Unit.subject_id)
          .join(GradeSubject, and_(GradeSubject.grade_id == Unit.grade_id, GradeSubject.subject_id == Unit.subject_id))
-         .where(Unit.published.is_(True), Grade.published.is_(True), Subject.published.is_(True), GradeSubject.published.is_(True)))
+         .where(Unit.published.is_(True), Grade.published.is_(True), Subject.published.is_(True), GradeSubject.published.is_(True),
+                Unit.archived_at.is_(None), Grade.archived_at.is_(None), Subject.archived_at.is_(None)))
     if grade_number is not None:
         q = q.where(Grade.number == grade_number)
     if subject_id is not None:

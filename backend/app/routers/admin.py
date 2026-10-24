@@ -2,41 +2,27 @@
 import os
 import secrets
 from datetime import timedelta
-import io
-import pandas as pd
-import hashlib
 
 from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from ..accounts import clear_suspension, revoke_sessions
 from ..config import get_settings
 from ..db import get_db
 from ..deps import admin_user, audit, err
-from ..models import (
-    AccountStatus, AppSetting, AuditLog, Grade, GradeSubject, PublishStatus, Question, AnswerOption, QuizAttempt, RefreshToken, Role,
-    SessionQuestion, StudentProgress, Subject, Unit, User, ImportBatch, utcnow
-)
+from ..models import (AccountStatus, AppSetting, AuditLog, Grade, GradeSubject, PublishStatus, Question, QuizAttempt, RefreshToken, Role,
+                      SessionQuestion, StudentProgress, Subject, Unit, User, utcnow)
 from ..routers.student import compute_stats
-from ..schemas import (
-    AssignIn, GradeIn, GradePatch, Page, ReorderIn, SettingsIn, StudentStatusIn, SubjectIn, SubjectPatch, UnitIn,
-    UnitPatch
-)
+from ..schemas import (AssignIn, GradeIn, GradePatch, Page, ReorderIn, SettingsIn, StudentStatusIn, SubjectIn, SubjectPatch, SubjectReorderIn,
+                       UnitIn, UnitPatch)
 from ..security import generate_temp_password, hash_password
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(admin_user)])
 
 
-def _me(admin: User = Depends(admin_user)) -> User:    # cached per request by FastAPI
+def _me(admin: User = Depends(admin_user)) -> User:   # cached per request by FastAPI
     return admin
-
-
-def _audit_out(a: AuditLog) -> dict:
-    return {"id": a.id, "admin": a.admin_name, "action": a.action, "entity": a.entity, "entity_id": a.entity_id, "details": a.details, "ip": a.ip, "at": a.created_at}
-
-
-def _nf(what: str):
-    raise err(404, "not_found", f"{what} not found.")
 
 
 # ---------------- dashboard ----------------
@@ -59,83 +45,17 @@ def dashboard(db: Session = Depends(get_db)):
     }
 
 
-# ---------------- admin governance & promotion chain ----------------
-def _is_descendant(db: Session, actor_id: int, target_id: int) -> bool:
-    """Check if target is in actor's promotion sub-tree."""
-    current = target_id
-    while current:
-        u = db.get(User, current)
-        if not u or not u.promoted_by_id:
-            return False
-        if u.promoted_by_id == actor_id:
-            return True
-        current = u.promoted_by_id
-    return False
-
-
-@router.get("/admins")
-def list_admins(db: Session = Depends(get_db)):
-    admins = db.scalars(select(User).where(User.role == Role.admin)).all()
-    return [{
-        "id": a.id,
-        "full_name": a.full_name,
-        "phone": a.phone,
-        "is_owner": a.is_owner,
-        "promoted_by_id": a.promoted_by_id,
-        "status": a.status.value,
-        "created_at": a.created_at
-    } for a in admins]
-
-
-@router.post("/admins/promote", status_code=201)
-def promote_user(user_id: int, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
-    u = db.get(User, user_id) or _nf("User")
-    if u.role == Role.admin:
-        raise err(400, "already_admin", "User is already an administrator.")
-    u.role = Role.admin
-    u.promoted_by_id = admin.id
-    u.token_version += 1
-    audit(db, admin, "admin.promote", "user", u.id, {"promoted_by": admin.id}, request)
-    db.commit()
-    return {"message": f"User {u.full_name} promoted to admin successfully."}
-
-
-@router.post("/admins/{admin_id}/demote")
-def demote_admin(admin_id: int, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
-    target = db.get(User, admin_id) or _nf("Admin")
-    if target.is_owner:
-        raise err(403, "owner_protected", "Cannot demote the system owner.")
-    if target.id == admin.id:
-        raise err(403, "self_action_forbidden", "Cannot demote yourself.")
-    if not admin.is_owner and not _is_descendant(db, admin.id, target.id):
-        raise err(403, "forbidden_chain", "You can only demote administrators within your own promotion chain.")
-    
-    # Handle promoted admins pass-up: reassign their promoted_by_id to target's promoter
-    sub_admins = db.scalars(select(User).where(User.promoted_by_id == target.id)).all()
-    for sub in sub_admins:
-        sub.promoted_by_id = target.promoted_by_id
-
-    target.role = Role.student
-    target.promoted_by_id = None
-    target.token_version += 1
-    
-    # Revoke sessions
-    for t in db.scalars(select(RefreshToken).where(RefreshToken.user_id == target.id, RefreshToken.revoked_at.is_(None))):
-        t.revoked_at = utcnow()
-
-    audit(db, admin, "admin.demote", "user", target.id, None, request)
-    db.commit()
-    return {"message": f"Admin {target.full_name} demoted to student successfully."}
-
-
 # ---------------- grades ----------------
 def _grade_out(g: Grade) -> dict:
-    return {"id": g.id, "number": g.number, "name": g.name, "published": g.published}
+    return {"id": g.id, "number": g.number, "name": g.name, "published": g.published, "archived": g.archived_at is not None}
 
 
 @router.get("/grades")
-def list_grades(db: Session = Depends(get_db)):
-    return [_grade_out(g) for g in db.scalars(select(Grade).order_by(Grade.number))]
+def list_grades(include_archived: bool = False, db: Session = Depends(get_db)):
+    q = select(Grade).order_by(Grade.number)
+    if not include_archived:
+        q = q.where(Grade.archived_at.is_(None))
+    return [_grade_out(g) for g in db.scalars(q)]
 
 
 @router.post("/grades", status_code=201)
@@ -160,17 +80,56 @@ def update_grade(grade_id: int, body: GradePatch, request: Request, db: Session 
     return _grade_out(g)
 
 
+def _nf(what: str):
+    raise err(404, "not_found", f"{what} not found.")
+
+
+@router.delete("/grades/{grade_id}")
+def archive_grade(grade_id: int, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
+    """Archiving hides the grade from students but keeps every unit, question, result and bookmark."""
+    g = db.get(Grade, grade_id) or _nf("Grade")
+    g.archived_at = utcnow()
+    audit(db, admin, "grade.archive", "grade", g.id, {"number": g.number}, request)
+    db.commit()
+    return _grade_out(g)
+
+
+@router.post("/grades/{grade_id}/restore")
+def restore_grade(grade_id: int, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
+    g = db.get(Grade, grade_id) or _nf("Grade")
+    g.archived_at = None
+    audit(db, admin, "grade.restore", "grade", g.id, None, request)
+    db.commit()
+    return _grade_out(g)
+
+
 # ---------------- subjects ----------------
 def _subject_out(db: Session, s: Subject) -> dict:
     links = db.scalars(select(GradeSubject).where(GradeSubject.subject_id == s.id)).all()
     nums = {g.id: g.number for g in db.scalars(select(Grade))}
-    return {"id": s.id, "key": s.key, "name": s.name, "icon": s.icon, "published": s.published,
+    return {"id": s.id, "key": s.key, "name": s.name, "icon": s.icon, "track": s.track, "position": s.position, "published": s.published,
+            "archived": s.archived_at is not None,
             "grades": sorted([{"grade_id": l.grade_id, "number": nums[l.grade_id], "published": l.published} for l in links], key=lambda x: x["number"])}
 
 
 @router.get("/subjects")
-def list_subjects(db: Session = Depends(get_db)):
-    return [_subject_out(db, s) for s in db.scalars(select(Subject).order_by(Subject.name))]
+def list_subjects(include_archived: bool = False, db: Session = Depends(get_db)):
+    q = select(Subject).order_by(Subject.position, Subject.name)
+    if not include_archived:
+        q = q.where(Subject.archived_at.is_(None))
+    return [_subject_out(db, s) for s in db.scalars(q)]
+
+
+@router.post("/subjects/reorder")
+def reorder_subjects(body: SubjectReorderIn, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
+    subs = {s.id: s for s in db.scalars(select(Subject).where(Subject.id.in_(body.subject_ids)))}
+    if set(subs) != set(body.subject_ids) or len(body.subject_ids) != len(set(body.subject_ids)):
+        raise err(422, "bad_order", "subject_ids must be existing subjects, each listed once.")
+    for i, sid in enumerate(body.subject_ids, start=1):
+        subs[sid].position = i
+    audit(db, admin, "subject.reorder", "subject", None, {"order": body.subject_ids}, request)
+    db.commit()
+    return [_subject_out(db, subs[i]) for i in body.subject_ids]
 
 
 @router.post("/subjects", status_code=201)
@@ -221,29 +180,37 @@ def unassign_subject(grade_id: int, subject_id: int, request: Request, db: Sessi
     return Response(status_code=204)
 
 
-@router.delete("/subjects/{subject_id}", status_code=204)
-def delete_subject(subject_id: int, request: Request, confirm: bool = Query(False), db: Session = Depends(get_db), admin: User = Depends(_me)):
+@router.delete("/subjects/{subject_id}")
+def archive_subject(subject_id: int, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
+    """Archive instead of erase: students' history and bookmarks for this subject keep working."""
     s = db.get(Subject, subject_id) or _nf("Subject")
-    if not confirm:
-        raise err(400, "confirmation_required", "Add confirm=true to delete.")
-    if db.scalar(select(func.count()).select_from(Unit).where(Unit.subject_id == s.id)):
-        raise err(409, "has_units", "This subject has units. Unpublish it instead of deleting.")
-    audit(db, admin, "subject.delete", "subject", s.id, {"key": s.key}, request)
-    db.delete(s)
+    s.archived_at = utcnow()
+    audit(db, admin, "subject.archive", "subject", s.id, {"key": s.key}, request)
     db.commit()
-    return Response(status_code=204)
+    return _subject_out(db, s)
+
+
+@router.post("/subjects/{subject_id}/restore")
+def restore_subject(subject_id: int, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
+    s = db.get(Subject, subject_id) or _nf("Subject")
+    s.archived_at = None
+    audit(db, admin, "subject.restore", "subject", s.id, None, request)
+    db.commit()
+    return _subject_out(db, s)
 
 
 # ---------------- units ----------------
 def _unit_out(db: Session, u: Unit) -> dict:
     counts = dict(db.execute(select(Question.status, func.count()).where(Question.unit_id == u.id, Question.deleted_at.is_(None)).group_by(Question.status)).all())
     return {"id": u.id, "grade_id": u.grade_id, "subject_id": u.subject_id, "title": u.title, "kind": u.kind, "position": u.position, "published": u.published,
-            "questions": {k.value: counts.get(k, 0) for k in PublishStatus}}
+            "archived": u.archived_at is not None, "questions": {k.value: counts.get(k, 0) for k in PublishStatus}}
 
 
 @router.get("/units")
-def list_units(grade_id: int | None = None, subject_id: int | None = None, db: Session = Depends(get_db)):
+def list_units(grade_id: int | None = None, subject_id: int | None = None, include_archived: bool = False, db: Session = Depends(get_db)):
     q = select(Unit).order_by(Unit.grade_id, Unit.subject_id, Unit.position, Unit.id)
+    if not include_archived:
+        q = q.where(Unit.archived_at.is_(None))
     if grade_id:
         q = q.where(Unit.grade_id == grade_id)
     if subject_id:
@@ -258,7 +225,7 @@ def create_unit(body: UnitIn, request: Request, db: Session = Depends(get_db), a
     if db.scalar(select(Unit.id).where(Unit.grade_id == g.id, Unit.subject_id == s.id, func.lower(Unit.title) == body.title.lower())):
         raise err(409, "unit_exists", "A unit with this title already exists for this grade and subject.")
     if db.get(GradeSubject, (g.id, s.id)) is None:
-        db.add(GradeSubject(grade_id=g.id, subject_id=s.id, published=True))    # creating a unit implies the subject is taught in that grade
+        db.add(GradeSubject(grade_id=g.id, subject_id=s.id, published=True))     # creating a unit implies the subject is taught in that grade
     pos = (db.scalar(select(func.max(Unit.position)).where(Unit.grade_id == g.id, Unit.subject_id == s.id)) or 0) + 1
     u = Unit(grade_id=g.id, subject_id=s.id, title=body.title, kind=body.kind, position=pos, published=body.published)
     db.add(u)
@@ -293,22 +260,27 @@ def reorder_units(body: ReorderIn, request: Request, db: Session = Depends(get_d
     return [_unit_out(db, units[i]) for i in body.unit_ids]
 
 
-@router.delete("/units/{unit_id}", status_code=204)
-def delete_unit(unit_id: int, request: Request, confirm: bool = Query(False), db: Session = Depends(get_db), admin: User = Depends(_me)):
+@router.delete("/units/{unit_id}")
+def archive_unit(unit_id: int, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
     u = db.get(Unit, unit_id) or _nf("Unit")
-    if not confirm:
-        raise err(400, "confirmation_required", "Add confirm=true to delete.")
-    if db.scalar(select(func.count()).select_from(Question).where(Question.unit_id == u.id)):
-        raise err(409, "has_questions", "This unit still has questions (including archived/deleted ones that keep student history). Unpublish it instead.")
-    audit(db, admin, "unit.delete", "unit", u.id, {"title": u.title}, request)
-    db.delete(u)
+    u.archived_at = utcnow()
+    audit(db, admin, "unit.archive", "unit", u.id, {"title": u.title}, request)
     db.commit()
-    return Response(status_code=204)
+    return _unit_out(db, u)
 
 
-# ---------------- students & suspensions ----------------
+@router.post("/units/{unit_id}/restore")
+def restore_unit(unit_id: int, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
+    u = db.get(Unit, unit_id) or _nf("Unit")
+    u.archived_at = None
+    audit(db, admin, "unit.restore", "unit", u.id, None, request)
+    db.commit()
+    return _unit_out(db, u)
+
+
+# ---------------- students ----------------
 def _student_out(u: User) -> dict:
-    return {"id": u.id, "full_name": u.full_name, "phone": u.phone, "status": u.status.value, "selected_grade": u.selected_grade,
+    return {"id": u.id, "full_name": u.full_name, "username": u.username, "phone": u.phone, "status": u.status.value, "selected_grade": u.selected_grade,
             "created_at": u.created_at, "last_active_at": u.last_active_at, "must_change_password": u.must_change_password}
 
 
@@ -317,7 +289,7 @@ def list_students(q: str | None = None, status: str | None = None, page: int = Q
     st = select(User).where(User.role == Role.student)
     if q:
         like = f"%{q.strip().replace('%', '').replace('_', '')}%"
-        st = st.where(or_(User.full_name.ilike(like), User.phone.like(like)))
+        st = st.where(or_(User.full_name.ilike(like), User.phone.like(like), User.username.ilike(like)))
     if status:
         st = st.where(User.status == AccountStatus(status))
     total = db.scalar(select(func.count()).select_from(st.subquery()))
@@ -343,10 +315,11 @@ def student_detail(student_id: int, db: Session = Depends(get_db)):
 @router.patch("/students/{student_id}/status")
 def set_student_status(student_id: int, body: StudentStatusIn, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
     u = _student(db, student_id)
-    u.status = AccountStatus(body.status)
-    u.token_version += 1
-    for t in db.scalars(select(RefreshToken).where(RefreshToken.user_id == u.id, RefreshToken.revoked_at.is_(None))):
-        t.revoked_at = utcnow()
+    if body.status == "inactive":                    # suspending signs the student out everywhere
+        u.status, u.suspended_at, u.suspended_by_id = AccountStatus.inactive, utcnow(), admin.id
+        revoke_sessions(db, u.id)
+    else:
+        clear_suspension(u)
     audit(db, admin, "student.status", "user", u.id, {"status": body.status}, request)
     db.commit()
     return _student_out(u)
@@ -360,179 +333,11 @@ def reset_password(student_id: int, request: Request, db: Session = Depends(get_
     temp = generate_temp_password()
     u.password_hash = hash_password(temp)
     u.must_change_password = True
-    u.token_version += 1
     for t in db.scalars(select(RefreshToken).where(RefreshToken.user_id == u.id, RefreshToken.revoked_at.is_(None))):
         t.revoked_at = utcnow()
     audit(db, admin, "student.password_reset", "user", u.id, None, request)      # the password itself is never logged
     db.commit()
     return {"temporary_password": temp, "note": "Give this to the student privately. It works once; they must set a new password when they sign in."}
-
-
-# ---------------- excel import & export ----------------
-@router.post("/import/preview")
-async def preview_excel_import(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    content = await file.read()
-    try:
-        df = pd.read_excel(io.BytesIO(content))
-    except Exception as e:
-        raise err(400, "invalid_excel", f"Could not parse Excel file: {str(e)}")
-
-    required_cols = {"grade", "subject", "unit", "question", "option_a", "option_b", "option_c", "option_d", "correct_answer"}
-    missing = required_cols - set(df.columns)
-    if missing:
-        raise err(422, "missing_columns", f"Excel file is missing required columns: {list(missing)}")
-
-    rows_preview = []
-    errors = []
-    duplicates = []
-
-    for idx, row in df.iterrows():
-        r_num = idx + 2  # Excel row numbering (1-based + header)
-        text = str(row.get("question", "")).strip()
-        correct = str(row.get("correct_answer", "")).strip().upper()
-
-        row_errors = []
-        if not text:
-            row_errors.append("Question text is empty")
-        if correct not in ["A", "B", "C", "D"]:
-            row_errors.append(f"Invalid correct_answer '{correct}', must be A, B, C, or D")
-
-        # Check duplicate by text hash
-        text_key = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        existing_q = db.scalar(select(Question.id).where(Question.text_key == text_key, Question.deleted_at.is_(None)))
-        is_dup = existing_q is not None
-
-        if row_errors:
-            errors.append({"row": r_num, "errors": row_errors})
-        if is_dup:
-            duplicates.append({"row": r_num, "question": text[:50]})
-
-        rows_preview.append({
-            "row": r_num,
-            "grade": row.get("grade"),
-            "subject": row.get("subject"),
-            "unit": row.get("unit"),
-            "question": text,
-            "correct_answer": correct,
-            "is_duplicate": is_dup,
-            "errors": row_errors
-        })
-
-    return {
-        "file_name": file.filename,
-        "total_rows": len(df),
-        "error_count": len(errors),
-        "duplicate_count": len(duplicates),
-        "errors": errors,
-        "duplicates": duplicates,
-        "preview": rows_preview[:50]  # first 50 rows preview
-    }
-
-
-@router.post("/import/commit", status_code=201)
-async def commit_excel_import(
-    file: UploadFile = File(...),
-    duplicate_strategy: str = Query("skip", regex="^(skip|update|add)$"),
-    request: Request = Depends(Request),
-    db: Session = Depends(get_db),
-    admin: User = Depends(_me)
-):
-    content = await file.read()
-    try:
-        df = pd.read_excel(io.BytesIO(content))
-    except Exception as e:
-        raise err(400, "invalid_excel", f"Could not parse Excel file: {str(e)}")
-
-    batch = ImportBatch(file_name=file.filename, admin_id=admin.id, total_rows=len(df), status="draft")
-    db.add(batch)
-    db.flush()
-
-    imported_count = 0
-    for _, row in df.iterrows():
-        text = str(row.get("question", "")).strip()
-        if not text:
-            continue
-        correct = str(row.get("correct_answer", "")).strip().upper()
-        if correct not in ["A", "B", "C", "D"]:
-            continue
-
-        grade_num = int(row.get("grade", 9))
-        subject_key = str(row.get("subject", "math")).strip().lower()
-        unit_title = str(row.get("unit", "Unit 1")).strip()
-
-        # Find or create Grade, Subject, Unit
-        grade = db.scalar(select(Grade).where(Grade.number == grade_num))
-        if not grade:
-            grade = Grade(number=grade_num, name=f"Grade {grade_num}")
-            db.add(grade)
-            db.flush()
-
-        subject = db.scalar(select(Subject).where(Subject.key == subject_key))
-        if not subject:
-            subject = Subject(key=subject_key, name=subject_key.capitalize())
-            db.add(subject)
-            db.flush()
-
-        # Ensure grade_subject link
-        if not db.get(GradeSubject, (grade.id, subject.id)):
-            db.add(GradeSubject(grade_id=grade.id, subject_id=subject.id, published=True))
-
-        unit = db.scalar(select(Unit).where(Unit.grade_id == grade.id, Unit.subject_id == subject.id, func.lower(Unit.title) == unit_title.lower()))
-        if not unit:
-            unit = Unit(grade_id=grade.id, subject_id=subject.id, title=unit_title, published=False)
-            db.add(unit)
-            db.flush()
-
-        text_key = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        existing = db.scalar(select(Question).where(Question.text_key == text_key, Question.deleted_at.is_(None)))
-
-        if existing:
-            if duplicate_strategy == "skip":
-                continue
-            elif duplicate_strategy == "update":
-                existing.text = text
-                existing.explanation = str(row.get("explanation", "")) or None
-                imported_count += 1
-                continue
-
-        q = Question(
-            unit_id=unit.id,
-            text=text,
-            text_key=text_key,
-            explanation=str(row.get("explanation", "")) or None,
-            status=PublishStatus.draft  # imported as drafts for safety
-        )
-        db.add(q)
-        db.flush()
-
-        # Add options
-        for opt_label, pos in [("A", 1), ("B", 2), ("C", 3), ("D", 4)]:
-            opt_text = str(row.get(f"option_{opt_label.lower()}", "")).strip()
-            db.add(AnswerOption(
-                question_id=q.id,
-                text=opt_text,
-                is_correct=(opt_label == correct),
-                position=pos
-            ))
-        imported_count += 1
-
-    batch.imported_rows = imported_count
-    batch.status = "committed"
-    audit(db, admin, "import.excel", "import_batch", batch.id, {"file_name": file.filename, "imported": imported_count}, request)
-    db.commit()
-    return {"batch_id": batch.id, "file_name": batch.file_name, "imported_rows": imported_count, "status": "committed"}
-
-
-@router.post("/import/{batch_id}/undo", status_code=204)
-def undo_import_batch(batch_id: int, request: Request, db: Session = Depends(get_db), admin: User = Depends(_me)):
-    batch = db.get(ImportBatch, batch_id) or _nf("Import batch")
-    if batch.status != "committed":
-        raise err(400, "invalid_batch_status", "Batch is not in committed status or already rolled back.")
-    
-    batch.status = "rolled_back"
-    audit(db, admin, "import.undo", "import_batch", batch.id, {"file_name": batch.file_name}, request)
-    db.commit()
-    return Response(status_code=204)
 
 
 # ---------------- activity & analytics ----------------
@@ -580,6 +385,10 @@ def Integer_():
 
 
 # ---------------- audit log, settings, uploads ----------------
+def _audit_out(a: AuditLog) -> dict:
+    return {"id": a.id, "admin": a.admin_name, "action": a.action, "entity": a.entity, "entity_id": a.entity_id, "details": a.details, "ip": a.ip, "at": a.created_at}
+
+
 @router.get("/audit")
 def audit_log(action: str | None = None, page: int = Query(1, ge=1), size: int = Query(30, ge=1, le=100), db: Session = Depends(get_db)):
     q = select(AuditLog)
@@ -592,7 +401,7 @@ def audit_log(action: str | None = None, page: int = Query(1, ge=1), size: int =
 
 def _settings(db: Session) -> dict:
     row = db.get(AppSetting, "app")
-    base = {"app_name": "SQUIZ", "tagline": "Smart Quiz and Learning", "default_grade": None, "allow_name_change": True}
+    base = {"app_name": "SQUIZ", "tagline": "Matric exam preparation", "default_grade": None, "exam_name": None, "exam_date": None, "allow_name_change": True}
     return {**base, **(row.value if row else {})}
 
 

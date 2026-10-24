@@ -31,11 +31,11 @@ class QuizLauncher {
     await pushPage(context, QuizPage(controller: c));
   }
 
-  static Future<void> exam(BuildContext context, {required String title, required List<Question> questions, int? count, int? minutes}) async {
+  static Future<void> exam(BuildContext context, {required String title, required List<Question> questions, int? count, int? minutes, bool ordered = false}) async {
     final app = AppScope.read(context);
     if (questions.isEmpty) return showSnack(context, 'No questions available here yet.');
     if (!await _okToStart(context, app, false) || !context.mounted) return;
-    final c = QuizController(app: app, mode: QuizMode.exam, title: title, questions: _pick(questions, shuffle: true, count: count), limitSeconds: minutes == null ? null : minutes * 60);
+    final c = QuizController(app: app, mode: QuizMode.exam, title: title, questions: _pick(questions, shuffle: !ordered, count: count), limitSeconds: minutes == null ? null : minutes * 60);
     await pushPage(context, QuizPage(controller: c));
   }
 

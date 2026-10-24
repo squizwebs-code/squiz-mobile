@@ -5,6 +5,7 @@ import '../../state/app_state.dart';
 import '../app_scope.dart';
 import '../auth/auth_page.dart';
 import '../../core/motion.dart';
+import '../matric/matric.dart';
 import '../widgets/common.dart';
 import '../widgets/sheets.dart';
 
@@ -47,6 +48,16 @@ class ProfilePage extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => showGradeSheet(context),
               ),
+              if (app.grade >= 11 && app.bank?.hasTracks == true) ...[
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.alt_route_rounded),
+                  title: const Text('Matric stream'),
+                  subtitle: Text(trackName(app.track)),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => showTrackSheet(context),
+                ),
+              ],
               const Divider(height: 1),
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -163,9 +174,21 @@ class _SignedIn extends StatelessWidget {
         const SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(u.fullName, style: context.tt.titleMedium?.copyWith(fontWeight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text(u.phone, style: context.tt.bodySmall?.copyWith(color: context.cs.onSurfaceVariant)),
+          Text('@${u.username} · ${u.phone}', style: context.tt.bodySmall?.copyWith(color: context.cs.onSurfaceVariant)),
+          if (u.isAdmin) Padding(padding: const EdgeInsets.only(top: 4), child: Pill(u.isOwner ? 'Owner' : 'Administrator', icon: Icons.admin_panel_settings_rounded)),
         ])),
       ]),
+      if (u.isAdmin) ...[
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.tonalIcon(
+            icon: Icon(app.adminMode ? Icons.school_rounded : Icons.admin_panel_settings_rounded),
+            label: Text(app.adminMode ? 'Switch to student mode' : 'Switch to admin mode'),
+            onPressed: () => app.chooseMode(app.adminMode ? AppMode.student : AppMode.admin),
+          ),
+        ),
+      ],
       const SizedBox(height: 14),
       Row(children: [
         Icon(icon, size: 18, color: color),
@@ -184,11 +207,12 @@ class _SignedIn extends StatelessWidget {
             if (ok) await app.signOut();
           },
         ),
-        TextButton.icon(
-          icon: Icon(Icons.delete_forever_outlined, size: 18, color: context.sq.bad),
-          label: Text('Delete account', style: TextStyle(color: context.sq.bad)),
-          onPressed: () => _delete(context),
-        ),
+        if (!u.isAdmin)
+          TextButton.icon(
+            icon: Icon(Icons.delete_forever_outlined, size: 18, color: context.sq.bad),
+            label: Text('Delete account', style: TextStyle(color: context.sq.bad)),
+            onPressed: () => _delete(context),
+          ),
       ]),
     ]);
   }

@@ -9,6 +9,9 @@ import '../data/models.dart';
 
 enum SyncStatus { idle, syncing, ok, error }
 
+/// An administrator account can use the app as a student or as an administrator.
+enum AppMode { student, admin }
+
 /// Pure merge helpers (same rules as the server) so they can be unit-tested without Flutter.
 class Merge {
   /// Per-key last-write-wins. Ties keep [a] (the local value).
@@ -82,18 +85,22 @@ class SubjectStat {
 }
 
 class AppState extends ChangeNotifier {
-  AppState({required this.prefs, required this.bankRepo, required this.auth, required this.syncApi, int Function()? nowMs}) : nowMs = nowMs ?? (() => DateTime.now().millisecondsSinceEpoch);
+  AppState({required this.prefs, required this.bankRepo, required this.auth, required this.syncApi, this.admin, int Function()? nowMs}) : nowMs = nowMs ?? (() => DateTime.now().millisecondsSinceEpoch);
 
   final SharedPreferences prefs;
   final BankRepository bankRepo;
   final AuthApi auth;
   final SyncApi syncApi;
+  final AdminApi? admin;
   final int Function() nowMs;
 
   static const _kState = 'squiz.v2.state';
   static const _kSession = 'squiz.v2.session';
   static const _kGrade = 'squiz.v2.grade';
   static const _kTheme = 'squiz.v2.theme';
+  static const _kTrack = 'squiz.v2.track';
+  static const _kMode = 'squiz.v2.mode';
+  static const _kConfig = 'squiz.v2.config';
 
   // ---- content
   QuestionBank? bank;
@@ -123,6 +130,28 @@ class AppState extends ChangeNotifier {
   int _version = 0;
   Timer? _saveTimer, _syncTimer;
 
+  // ---- Matric stream (grades 11 and 12) and administrator mode
+  String? _track; // 'natural' | 'social' | null = everything
+  String? get track => _track;
+  String? get effectiveTrack => grade >= 11 ? _track : null;
+  AppMode? mode;
+  AppMode? _lastMode;
+  bool get isAdmin => user?.isAdmin ?? false;
+  bool get adminMode => isAdmin && mode == AppMode.admin;
+  bool get needsModeChoice => isAdmin && mode == null;
+
+  // ---- public configuration and announcements
+  Map<String, dynamic> remoteConfig = {};
+  List<Map<String, dynamic>> announcements = [];
+  DateTime? get examDate => DateTime.tryParse((remoteConfig['exam_date'] ?? '').toString());
+  String get examName => (remoteConfig['exam_name'] ?? 'Matric exam').toString();
+
+  @override
+  void notifyListeners() {
+    bank?.activeTrack = effectiveTrack; // every screen reads the bank through the student's stream
+    super.notifyListeners();
+  }
+
   int get grade => _grade ?? 11;
   bool get needsOnboarding => _grade == null;
   bool get signedIn => user != null;
@@ -140,10 +169,17 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     // Restore the account in the background; being offline keeps the student working with local data.
     unawaited(_restoreAccount());
+    unawaited(loadConfig());
   }
 
   void _loadLocal() {
     _grade = prefs.getInt(_kGrade);
+    _track = prefs.getString(_kTrack);
+    _lastMode = prefs.getString(_kMode) == 'admin' ? AppMode.admin : (prefs.getString(_kMode) == 'student' ? AppMode.student : null);
+    try {
+      final c = prefs.getString(_kConfig);
+      if (c != null) remoteConfig = Map<String, dynamic>.from(jsonDecode(c) as Map);
+    } catch (_) {}
     themeMode = switch (prefs.getString(_kTheme)) { 'light' => ThemeMode.light, 'dark' => ThemeMode.dark, _ => ThemeMode.system };
     final raw = prefs.getString(_kState);
     if (raw != null) {
@@ -215,6 +251,45 @@ class AppState extends ChangeNotifier {
         await auth.setGrade(g);
       } catch (_) {/* the grade is also kept on the phone; the account copy is best-effort */}
     }
+  }
+
+  Future<void> setTrack(String? t) async {
+    _track = t;
+    if (t == null) {
+      await prefs.remove(_kTrack);
+    } else {
+      await prefs.setString(_kTrack, t);
+    }
+    notifyListeners();
+    if (signedIn) {
+      try {
+        await auth.setTrack(t);
+      } catch (_) {/* kept on the phone either way */}
+    }
+  }
+
+  Future<void> chooseMode(AppMode m) async {
+    mode = m;
+    _lastMode = m;
+    await prefs.setString(_kMode, m.name);
+    notifyListeners();
+  }
+
+  /// Exam date, exam name and similar settings an administrator controls. Cached so the countdown also works offline.
+  Future<void> loadConfig() async {
+    try {
+      remoteConfig = await syncApi.config();
+      await prefs.setString(_kConfig, jsonEncode(remoteConfig));
+      notifyListeners();
+    } catch (_) {/* offline: keep the cached copy */}
+  }
+
+  Future<void> loadAnnouncements() async {
+    if (!signedIn) return;
+    try {
+      announcements = await syncApi.announcements();
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> setThemeMode(ThemeMode m) async {
@@ -342,6 +417,7 @@ class AppState extends ChangeNotifier {
   Future<void> _restoreAccount() async {
     try {
       user = await auth.restore();
+      _enterAccount();
       notifyListeners();
       if (user != null) unawaited(syncNow());
     } on ApiException catch (e) {
@@ -353,14 +429,38 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Decides where a signed-in account starts. Students always use the student app; an administrator chooses.
+  void _enterAccount({bool fresh = false}) {
+    final u = user;
+    if (u == null) {
+      mode = null;
+      return;
+    }
+    if (!u.isAdmin) {
+      mode = AppMode.student;
+    } else {
+      mode = fresh ? null : _lastMode;
+    }
+    if (_grade == null && u.grade != null) {
+      _grade = u.grade; // signing in on a new phone: start at the grade saved on the account
+      unawaited(prefs.setInt(_kGrade, u.grade!));
+    }
+    if (_track == null && u.track != null) {
+      _track = u.track;
+      unawaited(prefs.setString(_kTrack, u.track!));
+    }
+  }
+
   Future<void> signIn(String identifier, String password) async {
     user = await auth.login(identifier, password);
+    _enterAccount(fresh: true);
     notifyListeners();
     unawaited(syncNow());
   }
 
-  Future<void> register(String name, String phone, String password, String confirm) async {
-    user = await auth.register(fullName: name, phone: phone, password: password, confirm: confirm);
+  Future<void> register(String name, String username, String phone, String password, String confirm) async {
+    user = await auth.register(fullName: name, username: username, phone: phone, password: password, confirm: confirm);
+    _enterAccount(fresh: true);
     notifyListeners();
     unawaited(syncNow());
   }
@@ -370,6 +470,7 @@ class AppState extends ChangeNotifier {
     final phone = user!.phone;
     await auth.changePassword(current, next);
     user = await auth.login(phone, next);
+    _enterAccount();
     notifyListeners();
     unawaited(syncNow());
   }
@@ -378,6 +479,7 @@ class AppState extends ChangeNotifier {
   void sessionExpired() {
     if (user == null) return;
     user = null;
+    mode = null;
     syncStatus = SyncStatus.idle;
     notifyListeners();
   }
@@ -386,6 +488,8 @@ class AppState extends ChangeNotifier {
     await auth.logout();
     await _wipeLearningState();
     user = null;
+    mode = null;
+    announcements = [];
     syncStatus = SyncStatus.idle;
     notifyListeners();
   }
@@ -394,6 +498,7 @@ class AppState extends ChangeNotifier {
     await auth.deleteAccount(password);
     await _wipeLearningState();
     user = null;
+    mode = null;
     syncStatus = SyncStatus.idle;
     notifyListeners();
   }
@@ -442,6 +547,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     final startedVersion = _version;
     try {
+      // role or suspension changed by an administrator since the last sync? (a rejected token ends the session below)
+      final fresh = await auth.me();
+      user = fresh;
+      if (!fresh.isAdmin) mode = AppMode.student;
       final remote = await syncApi.pushState(exportState());
       bookmarks = Merge.entries(bookmarks, _entries(remote['b']));
       flags = Merge.entries(flags, _entries(remote['f']));
@@ -454,14 +563,16 @@ class AppState extends ChangeNotifier {
     } on ApiException catch (e) {
       syncStatus = SyncStatus.error;
       syncError = e.offline ? 'Offline. Your progress is saved on this phone and will sync later.' : e.message;
-      if (e.status == 401) {
+      if (e.status == 401 || e.status == 403 && e.code == 'account_inactive') {
         user = null;
+        mode = null;
       }
     } finally {
       _syncing = false;
       notifyListeners();
     }
     if (syncStatus == SyncStatus.ok) {
+      unawaited(loadAnnouncements());
       await refreshBank();
       if (_dirty) _scheduleSync();
     }

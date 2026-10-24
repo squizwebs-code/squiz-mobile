@@ -1,11 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/motion.dart';
 import '../../core/theme.dart';
 import '../../data/api.dart';
 import '../app_scope.dart';
-import '../widgets/common.dart';
 
 String? validateName(String? v) => (v ?? '').trim().length < 2 ? 'Enter your full name' : null;
+
+String? validateUsername(String? v) {
+  final s = (v ?? '').trim();
+  if (!RegExp(r'^[A-Za-z0-9_.]{3,30}$').hasMatch(s)) return '3–30 characters: letters, numbers, _ or .';
+  if (RegExp(r'^\d+$').hasMatch(s)) return 'Username cannot be only numbers';
+  return null;
+}
 
 String? validatePhone(String? v) {
   final d = (v ?? '').replaceAll(RegExp(r'[\s\-+()]'), '');
@@ -13,93 +20,80 @@ String? validatePhone(String? v) {
   return null;
 }
 
-String? validatePassword(String? v) {
-  final s = v ?? '';
-  if (s.length < 8) return 'Password must be at least 8 characters';
-  if (!RegExp(r'[A-Za-z]').hasMatch(s) || !RegExp(r'\d').hasMatch(s)) return 'Include both letters and numbers';
-  return null;
-}
+/// Any characters are allowed; the only rule is a length of at least 6.
+String? validatePassword(String? v) => (v ?? '').length < 6 ? 'At least 6 characters' : null;
 
-/// Professional Sign in and Registration Page
+/// Sign in or create an account. Accounts are always student accounts; the app never sends a role.
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key, this.startWithRegister = false});
   final bool startWithRegister;
-
   @override
   State<AuthPage> createState() => _AuthPageState();
 }
 
 class _AuthPageState extends State<AuthPage> {
-  final _formKey = GlobalKey<FormState>();
+  final _form = GlobalKey<FormState>();
   late bool _register = widget.startWithRegister;
-  
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmController = TextEditingController();
-
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _needPhone = false;
-  String? _errorMessage;
+  final _name = TextEditingController(), _username = TextEditingController(), _identifier = TextEditingController();
+  final _phone = TextEditingController(), _pass = TextEditingController(), _confirm = TextEditingController();
+  bool _busy = false, _hide = true;
+  String? _error;
+  bool? _usernameFree; // null = not checked yet
+  Timer? _debounce;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _passwordController.dispose();
-    _confirmController.dispose();
+    _debounce?.cancel();
+    for (final c in [_name, _username, _identifier, _phone, _pass, _confirm]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _handleSubmit() async {
-    FocusScope.of(context).unfocus();
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+  void _checkUsername(String v) {
+    _debounce?.cancel();
+    setState(() => _usernameFree = null);
+    if (validateUsername(v) != null) return;
+    _debounce = Timer(const Duration(milliseconds: 450), () async {
+      try {
+        final free = await AppScope.read(context).auth.usernameAvailable(v.trim());
+        if (mounted && _username.text.trim() == v.trim()) setState(() => _usernameFree = free);
+      } catch (_) {/* offline: the server checks again when you submit */}
+    });
+  }
 
+  Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
+    if (!_form.currentState!.validate()) return;
+    if (_register && _usernameFree == false) {
+      setState(() => _error = 'That username is already taken. Please choose another.');
+      return;
+    }
     final app = AppScope.read(context);
     final nav = Navigator.of(context);
-
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _busy = true;
+      _error = null;
     });
-
     try {
       if (_register) {
-        await app.register(
-          _nameController.text.trim(),
-          _phoneController.text.trim(),
-          _passwordController.text,
-          _confirmController.text,
-        );
+        await app.register(_name.text.trim(), _username.text.trim(), _phone.text.trim(), _pass.text, _confirm.text);
       } else {
-        await app.signIn(
-          _needPhone ? _phoneController.text.trim() : _nameController.text.trim(),
-          _passwordController.text,
-        );
+        await app.signIn(_identifier.text.trim(), _pass.text);
       }
-
       if (!mounted) return;
       if (app.user?.mustChangePassword == true) {
-        await nav.push(MaterialPageRoute<void>(
-          builder: (_) => const ChangePasswordPage(forced: true),
-        ));
+        await nav.push(MaterialPageRoute<void>(builder: (_) => const ChangePasswordPage(forced: true)));
       }
       if (mounted) nav.popUntil((r) => r.isFirst);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        if (e.code == 'ambiguous_name') {
-          _needPhone = true;
-          _errorMessage = 'Multiple students share this name. Please sign in using your phone number.';
-        } else {
-          _errorMessage = e.offline
-              ? 'No internet connection. You can practice offline and sign in later.'
-              : e.message;
-        }
+        if (e.code == 'username_taken') _usernameFree = false;
+        _error = e.offline ? 'No connection. You can keep practising offline and sign in later.' : e.message;
       });
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -107,268 +101,117 @@ class _AuthPageState extends State<AuthPage> {
   Widget build(BuildContext context) {
     final cs = context.cs;
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: const BackButton(),
-      ),
+      appBar: AppBar(),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
+            constraints: const BoxConstraints(maxWidth: 480),
             child: Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                children: [
-                  // App Branding / Header Icon
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        _register ? Icons.person_add_rounded : Icons.lock_person_rounded,
-                        size: 32,
-                        color: cs.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  // Title Header
-                  Text(
-                    _register ? 'Create Account' : 'Welcome Back',
-                    textAlign: TextAlign.center,
-                    style: context.tt.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _register
-                        ? 'Sign up to sync and back up your learning progress'
-                        : 'Sign in to access your saved quizzes and stats',
-                    textAlign: TextAlign.center,
-                    style: context.tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Standard Segmented Tab Switcher (Sign In vs Register)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() {
-                              _register = false;
-                              _errorMessage = null;
-                              _needPhone = false;
-                            }),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: !_register ? cs.surface : Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: !_register
-                                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))]
-                                    : [],
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                'Sign In',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: !_register ? cs.primary : cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() {
-                              _register = true;
-                              _errorMessage = null;
-                              _needPhone = false;
-                            }),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: _register ? cs.surface : Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: _register
-                                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))]
-                                    : [],
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                'Register',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: _register ? cs.primary : cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Form Fields
-                  if (_register || !_needPhone) ...[
-                    TextFormField(
-                      controller: _nameController,
-                      textInputAction: TextInputAction.next,
-                      autofillHints: const [AutofillHints.name],
-                      decoration: InputDecoration(
-                        labelText: _register ? 'Full Name' : 'Full Name or Phone Number',
-                        prefixIcon: const Icon(Icons.person_outline_rounded),
-                        filled: true,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                      ),
-                      validator: _register ? validateName : (v) => (v ?? '').trim().isEmpty ? 'Field cannot be empty' : null,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  if (_register || _needPhone) ...[
-                    TextFormField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.next,
-                      autofillHints: const [AutofillHints.telephoneNumber],
-                      decoration: InputDecoration(
-                        labelText: 'Phone Number',
-                        prefixIcon: const Icon(Icons.phone_outlined),
-                        filled: true,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                      ),
-                      validator: validatePhone,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
+              key: _form,
+              child: ListView(padding: const EdgeInsets.fromLTRB(24, 0, 24, 32), children: [
+                Text(_register ? 'Create your account' : 'Welcome back', style: context.tt.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 6),
+                Text(_register ? 'Your progress is saved and follows you to any phone.' : 'Sign in with your username or phone number.', style: context.tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                const SizedBox(height: 24),
+                if (_register) ...[
                   TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    textInputAction: _register ? TextInputAction.next : TextInputAction.done,
-                    onFieldSubmitted: (_) => _register ? null : _handleSubmit(),
-                    autofillHints: [_register ? AutofillHints.newPassword : AutofillHints.password],
+                    controller: _name,
+                    textInputAction: TextInputAction.next,
+                    textCapitalization: TextCapitalization.words,
+                    autofillHints: const [AutofillHints.name],
+                    decoration: const InputDecoration(labelText: 'Full name', prefixIcon: Icon(Icons.person_outline_rounded)),
+                    validator: validateName,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _username,
+                    textInputAction: TextInputAction.next,
+                    autocorrect: false,
+                    autofillHints: const [AutofillHints.newUsername],
+                    onChanged: _checkUsername,
                     decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline_rounded),
-                      filled: true,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                      suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                      ),
+                      labelText: 'Username',
+                      helperText: _usernameFree == true ? 'Available' : 'Letters, numbers, _ or . (you can sign in with it)',
+                      prefixIcon: const Icon(Icons.alternate_email_rounded),
+                      suffixIcon: _usernameFree == null ? null : Icon(_usernameFree! ? Icons.check_circle_rounded : Icons.cancel_rounded, color: _usernameFree! ? context.sq.good : context.sq.bad),
                     ),
-                    validator: _register ? validatePassword : (v) => (v ?? '').isEmpty ? 'Enter your password' : null,
+                    validator: (v) => validateUsername(v) ?? (_usernameFree == false ? 'That username is taken' : null),
                   ),
-
-                  if (_register) ...[
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _confirmController,
-                      obscureText: _obscurePassword,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _handleSubmit(),
-                      decoration: InputDecoration(
-                        labelText: 'Confirm Password',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                        filled: true,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                      ),
-                      validator: (v) => v != _passwordController.text ? 'Passwords do not match' : null,
-                    ),
-                  ],
-
-                  // Forgot Password Link (Sign In view only)
-                  if (!_register)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          // Standard recovery action placeholder
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Contact administration to reset your credentials.')),
-                          );
-                        },
-                        child: Text('Forgot Password?', style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-
-                  // Error Display Banner
-                 AnimatedContainer(
-                      duration: Motion.d(context, 200),
-                      curve: Curves.easeOutCubic,
-                      height: _errorMessage == null ? 0 : null, // Smoothly collapses height to 0
-                      child: _errorMessage == null
-                          ? const SizedBox.shrink()
-                          : Container(
-                              margin: const EdgeInsets.only(top: 16),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: context.sq.bad.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: context.sq.bad.withValues(alpha: 0.3)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.error_outline_rounded, color: context.sq.bad, size: 20),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(_errorMessage!, style: TextStyle(color: context.sq.bad, fontSize: 13)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                    ),
-                    const SizedBox(height: 24),
-
-                  // Primary Submit Button
-                  SizedBox(
-                    height: 52,
-                    child: FilledButton(
-                      onPressed: _isLoading ? null : _handleSubmit,
-                      style: FilledButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                            )
-                          : Text(
-                              _register ? 'Create Account' : 'Sign In',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                    ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.telephoneNumber],
+                    decoration: const InputDecoration(labelText: 'Phone number', prefixIcon: Icon(Icons.phone_outlined)),
+                    validator: validatePhone,
                   ),
-                  const SizedBox(height: 16),
-
-                  // Legal Disclaimer Footer (Register view only)
-                  if (_register)
-                    Text(
-                      'By creating an account, you agree to follow standard examination policies and student data guidelines.',
-                      textAlign: TextAlign.center,
-                      style: context.tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                    ),
+                ] else
+                  TextFormField(
+                    controller: _identifier,
+                    textInputAction: TextInputAction.next,
+                    autocorrect: false,
+                    autofillHints: const [AutofillHints.username],
+                    decoration: const InputDecoration(labelText: 'Username or phone number', prefixIcon: Icon(Icons.person_outline_rounded)),
+                    validator: (v) => (v ?? '').trim().isEmpty ? 'Enter your username or phone number' : null,
+                  ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _pass,
+                  obscureText: _hide,
+                  textInputAction: _register ? TextInputAction.next : TextInputAction.done,
+                  onFieldSubmitted: (_) => _register ? null : _submit(),
+                  autofillHints: [_register ? AutofillHints.newPassword : AutofillHints.password],
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    helperText: _register ? 'At least 6 characters' : null,
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    suffixIcon: IconButton(tooltip: _hide ? 'Show password' : 'Hide password', icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined), onPressed: () => setState(() => _hide = !_hide)),
+                  ),
+                  validator: _register ? validatePassword : (v) => (v ?? '').isEmpty ? 'Enter your password' : null,
+                ),
+                if (_register) ...[
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _confirm,
+                    obscureText: _hide,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _submit(),
+                    decoration: const InputDecoration(labelText: 'Confirm password', prefixIcon: Icon(Icons.lock_outline_rounded)),
+                    validator: (v) => v != _pass.text ? 'Passwords do not match' : null,
+                  ),
                 ],
-              ),
+                AnimatedSize(
+                  duration: Motion.d(context, 200),
+                  child: _error == null
+                      ? const SizedBox(width: double.infinity)
+                      : Container(
+                          margin: const EdgeInsets.only(top: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: context.sq.bad.withValues(alpha: .12), borderRadius: BorderRadius.circular(12)),
+                          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Icon(Icons.error_outline_rounded, color: context.sq.bad, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(_error!, style: context.tt.bodyMedium)),
+                          ]),
+                        ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: _busy ? null : _submit,
+                  child: _busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2.5)) : Text(_register ? 'Create account' : 'Sign in'),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() {
+                            _register = !_register;
+                            _error = null;
+                          }),
+                  child: Text(_register ? 'I already have an account' : 'New here? Create an account'),
+                ),
+              ]),
             ),
           ),
         ),
@@ -377,50 +220,45 @@ class _AuthPageState extends State<AuthPage> {
   }
 }
 
-/// Standard Change Password Dialog / Page
+/// Used from Profile, and shown automatically when the server says the password must be changed.
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key, this.forced = false});
   final bool forced;
-
   @override
   State<ChangePasswordPage> createState() => _ChangePasswordPageState();
 }
 
 class _ChangePasswordPageState extends State<ChangePasswordPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _currentController = TextEditingController();
-  final _newController = TextEditingController();
-  final _confirmController = TextEditingController();
-  bool _isLoading = false;
-  String? _errorMessage;
+  final _form = GlobalKey<FormState>();
+  final _cur = TextEditingController(), _new = TextEditingController(), _conf = TextEditingController();
+  bool _busy = false;
+  String? _error;
 
   @override
   void dispose() {
-    _currentController.dispose();
-    _newController.dispose();
-    _confirmController.dispose();
+    for (final c in [_cur, _new, _conf]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _savePassword() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+  Future<void> _save() async {
+    if (!_form.currentState!.validate()) return;
     final app = AppScope.read(context);
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
-
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _busy = true;
+      _error = null;
     });
-
     try {
-      await app.changePassword(_currentController.text, _newController.text);
-      messenger.showSnackBar(const SnackBar(content: Text('Password updated successfully')));
+      await app.changePassword(_cur.text, _new.text);
+      messenger.showSnackBar(const SnackBar(content: Text('Password changed')));
       nav.pop();
     } on ApiException catch (e) {
-      if (mounted) setState(() => _errorMessage = e.offline ? 'No network connection.' : e.message);
+      if (mounted) setState(() => _error = e.offline ? 'No connection. Try again when you are online.' : e.message);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -429,85 +267,21 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     return PopScope(
       canPop: !widget.forced,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Change Password'),
-          automaticallyImplyLeading: !widget.forced,
-        ),
+        appBar: AppBar(title: const Text('Change password'), automaticallyImplyLeading: !widget.forced),
         body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.all(24),
-                  children: [
-                    if (widget.forced)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: Text(
-                          'Your account requires a password update before proceeding.',
-                          style: context.tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                    TextFormField(
-                      controller: _currentController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: 'Current Password',
-                        filled: true,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                      ),
-                      validator: (v) => (v ?? '').isEmpty ? 'Enter current password' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _newController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: 'New Password',
-                        filled: true,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                      ),
-                      validator: validatePassword,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _confirmController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: 'Confirm New Password',
-                        filled: true,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                      ),
-                      validator: (v) => v != _newController.text ? 'Passwords do not match' : null,
-                    ),
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: Text(_errorMessage!, style: TextStyle(color: context.sq.bad)),
-                      ),
-                    const SizedBox(height: 28),
-                    SizedBox(
-                      height: 52,
-                      child: FilledButton(
-                        onPressed: _isLoading ? null : _savePassword,
-                        style: FilledButton.styleFrom(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                              )
-                            : const Text('Update Password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          child: Form(
+            key: _form,
+            child: ListView(padding: const EdgeInsets.all(24), children: [
+              if (widget.forced) Padding(padding: const EdgeInsets.only(bottom: 16), child: Text('You must choose a new password before continuing.', style: context.tt.bodyMedium)),
+              TextFormField(controller: _cur, obscureText: true, decoration: const InputDecoration(labelText: 'Current password'), validator: (v) => (v ?? '').isEmpty ? 'Enter your current password' : null),
+              const SizedBox(height: 14),
+              TextFormField(controller: _new, obscureText: true, decoration: const InputDecoration(labelText: 'New password'), validator: validatePassword),
+              const SizedBox(height: 14),
+              TextFormField(controller: _conf, obscureText: true, decoration: const InputDecoration(labelText: 'Confirm new password'), validator: (v) => v != _new.text ? 'Passwords do not match' : null),
+              if (_error != null) Padding(padding: const EdgeInsets.only(top: 14), child: Text(_error!, style: TextStyle(color: context.sq.bad))),
+              const SizedBox(height: 24),
+              FilledButton(onPressed: _busy ? null : _save, child: _busy ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2.5)) : const Text('Save password')),
+            ]),
           ),
         ),
       ),

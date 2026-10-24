@@ -6,12 +6,14 @@ import json
 import re
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, Response, UploadFile
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, PatternFill
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from ..db import get_db
 from ..deps import admin_user, audit, err
-from ..models import AnswerOption, Difficulty, Grade, GradeSubject, PublishStatus, Question, Subject, Unit, User
+from ..models import (AnswerOption, Difficulty, Grade, GradeSubject, ImportBatch, PublishStatus, Question, Subject, Unit, User, utcnow)
 from ..schemas import OptionOut, Page, QuestionIn, QuestionPatch
 
 router = APIRouter(prefix="/admin/questions", tags=["admin"], dependencies=[Depends(admin_user)])
@@ -108,7 +110,7 @@ def _get(db: Session, qid: int) -> Question:
 
 
 @router.get("/export")
-def export_questions(format: str = Query("json", pattern="^(json|csv)$"), status: str | None = None, grade_id: int | None = None,
+def export_questions(format: str = Query("json", pattern="^(json|csv|xlsx)$"), status: str | None = None, grade_id: int | None = None,
                      subject_id: int | None = None, unit_id: int | None = None, request: Request = None, db: Session = Depends(get_db),
                      admin: User = Depends(admin_user)):
     st = select(Question).join(Unit, Unit.id == Question.unit_id).where(Question.deleted_at.is_(None))
@@ -129,9 +131,24 @@ def export_questions(format: str = Query("json", pattern="^(json|csv)$"), status
         u = units[q.unit_id]
         recs.append({"grade": grades[u.grade_id].number, "subject": subs[u.subject_id].key, "unit": u.title, "question": q.text,
                      "options": [{"text": o.text, "is_correct": o.is_correct} for o in q.options], "explanation": q.explanation or "",
-                     "difficulty": q.difficulty.value if q.difficulty else "", "status": q.status.value})
+                     "image": q.image_url or "", "difficulty": q.difficulty.value if q.difficulty else "", "status": q.status.value})
     audit(db, admin, "question.export", "question", None, {"count": len(recs), "format": format}, request)
     db.commit()
+    if format == "xlsx":
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Questions"
+        ws.append(TEMPLATE_COLUMNS + ["status"])
+        for r in recs:
+            opts = [o["text"] for o in r["options"]][:4]
+            letter = next((LETTERS[i].upper() for i, o in enumerate(r["options"][:4]) if o["is_correct"]), "")
+            ws.append([_csv_safe(x) for x in [r["grade"], r["subject"], r["unit"], r["question"]] + opts + [""] * (4 - len(opts)) +
+                       [letter, r["explanation"], r.get("image") or "", r["difficulty"], r["status"]]])
+        _style_header(ws)
+        out = io.BytesIO()
+        wb.save(out)
+        return Response(out.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": 'attachment; filename="squiz-questions.xlsx"'})
     if format == "json":
         return Response(json.dumps({"questions": recs}, ensure_ascii=False, indent=1), media_type="application/json",
                         headers={"Content-Disposition": 'attachment; filename="squiz-questions.json"'})
@@ -155,9 +172,56 @@ def _csv_unsafe(s: str) -> str:
 
 
 # ------------------------------------------------------------------ import
+TEMPLATE_COLUMNS = ["grade", "subject", "unit", "question", "option_a", "option_b", "option_c", "option_d", "correct_answer", "explanation", "image", "difficulty"]
+_ALIASES = {"correct": "answer", "correct_answer": "answer", "correct_option": "answer", "answer_key": "answer", "image_url": "image", "text": "question",
+            **{f"option {c}": f"option_{c}" for c in LETTERS}, **{c: f"option_{c}" for c in "abcd"}}
+
+
+def _cell(v) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    return _csv_unsafe(" ".join(str(v).split())) if not isinstance(v, str) else _csv_unsafe(v.strip())
+
+
+def _parse_xlsx(data: bytes) -> list[dict]:
+    try:
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except Exception:
+        raise err(422, "bad_xlsx", "This is not a valid Excel (.xlsx) file.")
+    ws = wb["Questions"] if "Questions" in wb.sheetnames else wb.worksheets[0]
+    it = ws.iter_rows(values_only=True)
+    head = next(it, None)
+    if not head:
+        raise err(422, "no_rows", "The workbook is empty.")
+    cols = [_ALIASES.get(str(h or "").strip().lower().replace(" ", "_"), _ALIASES.get(str(h or "").strip().lower(), str(h or "").strip().lower().replace(" ", "_"))) for h in head]
+    missing = [c for c in ("grade", "subject", "unit", "question", "answer") if c not in cols]
+    if missing or not any(c.startswith("option_") for c in cols):
+        raise err(422, "bad_columns", "Missing columns: " + ", ".join(missing or ["option_a, option_b"]) + ". Download the template to see the expected columns.")
+    rows = []
+    for raw in it:
+        r = {c: _cell(v) for c, v in zip(cols, raw)}
+        if not any(r.values()):
+            continue                                           # blank line
+        if len(rows) > MAX_IMPORT_ROWS:
+            break
+        opts = [o for o in (r.get(f"option_{c}", "") for c in LETTERS) if o]
+        rows.append({"grade": r.get("grade"), "subject": r.get("subject"), "unit": r.get("unit"), "question": r.get("question"), "options": opts,
+                     "answer": r.get("answer"), "explanation": r.get("explanation"), "difficulty": r.get("difficulty"), "status": r.get("status"), "image": r.get("image")})
+    return rows
+
+
 def _parse(filename: str, data: bytes) -> list[dict]:
     if len(data) > MAX_IMPORT_BYTES:
         raise err(413, "file_too_large", "Import files can be at most 5 MB.")
+    if filename.lower().endswith((".xlsx", ".xlsm")) or data[:2] == b"PK":
+        rows = _parse_xlsx(data)
+        if len(rows) > MAX_IMPORT_ROWS:
+            raise err(413, "too_many_rows", f"Import at most {MAX_IMPORT_ROWS} questions at a time.")
+        if not rows:
+            raise err(422, "no_rows", "The file contains no questions.")
+        return rows
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -215,7 +279,7 @@ def validate_rows(db: Session, rows: list[dict], create_missing: bool) -> list[d
     grades = {g.number: g for g in db.scalars(select(Grade))}
     subs = list(db.scalars(select(Subject)))
     units = list(db.scalars(select(Unit)))
-    existing = {(k, u) for k, u in db.execute(select(Question.text_key, Question.unit_id).where(Question.deleted_at.is_(None)))}
+    existing = {(k, u): qid for k, u, qid in db.execute(select(Question.text_key, Question.unit_id, Question.id).where(Question.deleted_at.is_(None)).order_by(Question.id.desc()))}
     new_subjects: dict[str, str] = {}            # slug -> name (planned)
     new_units: dict[tuple, str] = {}              # (grade_no, subject_slug, unit_norm) -> title
     seen: set[tuple] = set()
@@ -286,6 +350,9 @@ def validate_rows(db: Session, rows: list[dict], create_missing: bool) -> list[d
                     correct = hit[0]
                 else:
                     errors.append("Correct answer does not match any option" if not hit else "Correct answer matches more than one option")
+        image = str(r.get("image") or "").strip()
+        if image and not image.startswith("/media/"):
+            errors.append("Image must be a file uploaded in the admin panel (it starts with /media/)")
         diff = str(r.get("difficulty") or "").strip().lower()
         if diff and diff not in ("easy", "medium", "hard"):
             errors.append("Difficulty must be easy, medium or hard")
@@ -295,15 +362,21 @@ def validate_rows(db: Session, rows: list[dict], create_missing: bool) -> list[d
         if not errors:
             unit_key = unit.id if unit else (gno, sslug if subject is None else subject.key, _norm(f"Unit {m.group(1)}" if (m := re.fullmatch(r"(?:unit[\s-]*)?(\d+)", uname, re.I)) else uname))
             k = (qkey(text), unit_key)
-            if (unit and (k[0], unit.id) in existing) or k in seen:
+            plan = {"grade": gno, "subject_id": subject.id if subject else None, "subject_name": sname, "subject_slug": sslug,
+                    "unit_id": unit.id if unit else None, "unit_title": None if unit else (f"Unit {m.group(1)}" if (m := re.fullmatch(r"(?:unit[\s-]*)?(\d+)", uname, re.I)) else uname),
+                    "text": text, "options": opts, "correct": correct, "explanation": " ".join(str(r.get("explanation") or "").split()) or None,
+                    "difficulty": diff or None, "status": status, "image": image or None}
+            if k in seen:
                 res["status"] = "duplicate"
-                errors.append("Same question text already exists in this unit" if unit and (k[0], unit.id) in existing else "Duplicate of an earlier row in this file")
+                errors.append("Duplicate of an earlier row in this file")
+            elif unit and (k[0], unit.id) in existing:
+                res["status"] = "duplicate"
+                errors.append("Same question text already exists in this unit")
+                res["_plan"] = {**plan, "existing_id": existing[(k[0], unit.id)]}
+                seen.add(k)
             else:
                 seen.add(k)
-                res["_plan"] = {"grade": gno, "subject_id": subject.id if subject else None, "subject_name": sname, "subject_slug": sslug,
-                                "unit_id": unit.id if unit else None, "unit_title": None if unit else (f"Unit {m.group(1)}" if (m := re.fullmatch(r"(?:unit[\s-]*)?(\d+)", uname, re.I)) else uname),
-                                "text": text, "options": opts, "correct": correct, "explanation": " ".join(str(r.get("explanation") or "").split()) or None,
-                                "difficulty": diff or None, "status": status}
+                res["_plan"] = plan
         else:
             res["status"] = "error"
         results.append(res)
@@ -319,6 +392,53 @@ def _public(results: list[dict]) -> list[dict]:
     return [{k: v for k, v in r.items() if k != "_plan"} for r in results]
 
 
+def _style_header(ws) -> None:
+    for c in ws[1]:
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = PatternFill("solid", fgColor="428BCA")
+    ws.freeze_panes = "A2"
+    for col in ws.columns:
+        ws.column_dimensions[col[0].column_letter].width = min(50, max(12, max(len(str(c.value or "")) for c in col[:50]) + 2))
+
+
+@router.get("/import/template")
+def import_template(db: Session = Depends(get_db)):
+    """Fixed-column Excel template with an instructions sheet and a reference sheet of the grades, subjects and units that exist now."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Questions"
+    ws.append(TEMPLATE_COLUMNS)
+    ws.append([12, "physics", "Unit 1", "What is the SI unit of force?", "Joule", "Newton", "Watt", "Pascal", "B", "Force is measured in newtons (N).", "", "easy"])
+    ws.append([12, "history", "Unit 2", "Example question text goes here", "Option A", "Option B", "Option C", "Option D", "Option C", "", "", ""])
+    _style_header(ws)
+    ins = wb.create_sheet("Instructions")
+    for line in ["How to fill this sheet", "",
+                 "1. One question per row. Do not rename or reorder the column headings in the first row of the 'Questions' sheet.",
+                 "2. grade: 9, 10, 11 or 12.  subject: the subject key or name (see the 'Reference' sheet).  unit: 'Unit 3' or just 3, or the unit title.",
+                 "3. option_a to option_d are the answers (at least two). You may add option_e to option_h.",
+                 "4. correct_answer: the letter (A, B, C, D) or the full text of the right option.",
+                 "5. explanation, image and difficulty (easy, medium, hard) are optional. An image must first be uploaded in the admin panel; paste its /media/... path.",
+                 "6. Upload the file in Import. You will see a preview with row errors and duplicates before anything is saved.",
+                 "7. Imported questions are saved as DRAFTS. Review and publish them when you are ready.",
+                 "Delete the two example rows before importing real data."]:
+        ins.append([line])
+    ins.column_dimensions["A"].width = 140
+    ins["A1"].font = Font(bold=True, size=14)
+    ref = wb.create_sheet("Reference")
+    ref.append(["grade", "subject_key", "subject_name", "track", "unit"])
+    grades = {g.id: g.number for g in db.scalars(select(Grade))}
+    subs = {x.id: x for x in db.scalars(select(Subject).where(Subject.archived_at.is_(None)))}
+    for u in db.scalars(select(Unit).where(Unit.archived_at.is_(None)).order_by(Unit.grade_id, Unit.subject_id, Unit.position)):
+        sb = subs.get(u.subject_id)
+        if sb:
+            ref.append([grades[u.grade_id], sb.key, sb.name, sb.track, u.title])
+    _style_header(ref)
+    out = io.BytesIO()
+    wb.save(out)
+    return Response(out.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="squiz-question-template.xlsx"'})
+
+
 @router.post("/import/validate")
 async def import_validate(file: UploadFile = File(...), create_missing: bool = Form(False), db: Session = Depends(get_db)):
     rows = _parse(file.filename or "upload", await file.read(MAX_IMPORT_BYTES + 1))
@@ -326,21 +446,57 @@ async def import_validate(file: UploadFile = File(...), create_missing: bool = F
     return {"summary": _summary(results), "rows": _public(results)[:500]}
 
 
+def _snapshot(q: Question) -> dict:
+    return {"text": q.text, "explanation": q.explanation, "difficulty": q.difficulty.value if q.difficulty else None, "image_url": q.image_url,
+            "options": [{"text": o.text, "is_correct": o.is_correct} for o in q.options]}
+
+
+def _apply_options(q: Question, opts: list[tuple[str, bool]]) -> None:
+    old = list(q.options)
+    for i, (text, ok) in enumerate(opts):
+        if i < len(old):
+            old[i].text, old[i].is_correct, old[i].position = text, ok, i
+        else:
+            q.options.append(AnswerOption(text=text, is_correct=ok, position=i))
+    for extra in old[len(opts):]:
+        q.options.remove(extra)
+
+
 @router.post("/import/commit")
-async def import_commit(request: Request, file: UploadFile = File(...), create_missing: bool = Form(False), db: Session = Depends(get_db),
-                        admin: User = Depends(admin_user)):
-    """Re-validates server-side (never trusts an earlier preview) and imports every valid, non-duplicate row in one transaction."""
+async def import_commit(request: Request, file: UploadFile = File(...), create_missing: bool = Form(False),
+                        policy: str = Form("skip", pattern="^(skip|update|add)$"), publish: bool = Form(False),
+                        db: Session = Depends(get_db), admin: User = Depends(admin_user)):
+    """Re-validates server-side (never trusts an earlier preview) and imports in one transaction.
+
+    policy for questions that already exist in the unit: skip (default), update them, or add a second copy.
+    New questions are DRAFTS unless publish=true, which honours each row's status column. Everything is recorded
+    as a batch so it can be undone."""
     rows = _parse(file.filename or "upload", await file.read(MAX_IMPORT_BYTES + 1))
     results = validate_rows(db, rows, create_missing)
-    created = {"subjects": 0, "units": 0, "questions": 0}
+    counts = {"subjects": 0, "units": 0, "created": 0, "updated": 0, "skipped_duplicates": 0}
+    items: list[dict] = []
     subj_cache: dict[str, Subject] = {_norm(s.key): s for s in db.scalars(select(Subject))}
     grades = {g.number: g for g in db.scalars(select(Grade))}
     unit_cache: dict[tuple, Unit] = {}
     try:
         for r in results:
             p = r.get("_plan")
-            if r["status"] != "ok" or not p:
+            if not p or r["status"] not in ("ok", "duplicate"):
                 continue
+            if r["status"] == "duplicate":
+                if not p.get("existing_id") or policy == "skip":
+                    counts["skipped_duplicates"] += 1
+                    continue
+                if policy == "update":
+                    q = _get(db, p["existing_id"])
+                    items.append({"op": "update", "qid": q.id, "before": _snapshot(q)})
+                    _apply_options(q, [(t, k == p["correct"]) for k, t in enumerate(p["options"])])
+                    q.explanation = p["explanation"] or q.explanation
+                    q.difficulty = Difficulty(p["difficulty"]) if p["difficulty"] else q.difficulty
+                    q.image_url = p["image"] or q.image_url
+                    q.version += 1
+                    counts["updated"] += 1
+                    continue
             grade = grades[p["grade"]]
             subject = db.get(Subject, p["subject_id"]) if p["subject_id"] else subj_cache.get(_norm(p["subject_slug"]))
             if subject is None:
@@ -348,7 +504,8 @@ async def import_commit(request: Request, file: UploadFile = File(...), create_m
                 db.add(subject)
                 db.flush()
                 subj_cache[_norm(subject.key)] = subject
-                created["subjects"] += 1
+                counts["subjects"] += 1
+                items.append({"op": "subject", "id": subject.id})
             if db.get(GradeSubject, (grade.id, subject.id)) is None:
                 db.add(GradeSubject(grade_id=grade.id, subject_id=subject.id, published=True))
                 db.flush()
@@ -362,20 +519,78 @@ async def import_commit(request: Request, file: UploadFile = File(...), create_m
                     unit = Unit(grade_id=grade.id, subject_id=subject.id, title=p["unit_title"], position=pos, published=True)
                     db.add(unit)
                     db.flush()
-                    created["units"] += 1
+                    counts["units"] += 1
+                    items.append({"op": "unit", "id": unit.id})
                 unit_cache[key] = unit
                 unit_id = unit.id
-            q = Question(unit_id=unit_id, text=p["text"], text_key=qkey(p["text"]), explanation=p["explanation"],
-                         difficulty=Difficulty(p["difficulty"]) if p["difficulty"] else None, status=PublishStatus(p["status"]), source_ref=f"import:{file.filename}#row{r['row']}")
+            q = Question(unit_id=unit_id, text=p["text"], text_key=qkey(p["text"]), explanation=p["explanation"], image_url=p["image"],
+                         difficulty=Difficulty(p["difficulty"]) if p["difficulty"] else None,
+                         status=PublishStatus(p["status"]) if publish else PublishStatus.draft, source_ref=f"import:{file.filename}#row{r['row']}"[:160])
             q.options = [AnswerOption(text=t, is_correct=(k == p["correct"]), position=k) for k, t in enumerate(p["options"])]
             db.add(q)
-            created["questions"] += 1
-        audit(db, admin, "question.import", "question", None, {"file": file.filename, **created, **_summary(results)}, request)
+            db.flush()
+            items.append({"op": "create", "qid": q.id})
+            counts["created"] += 1
+        summary = _summary(results)
+        batch = ImportBatch(admin_id=admin.id, admin_name=admin.full_name, filename=(file.filename or "upload")[:200], policy=policy,
+                            counts={**counts, **summary}, items=items)
+        db.add(batch)
+        db.flush()
+        audit(db, admin, "question.import", "import_batch", batch.id, {"file": file.filename, "policy": policy, **counts, **summary}, request)
         db.commit()
     except Exception:
         db.rollback()
         raise
-    return {"summary": _summary(results), "created": created, "rows": _public(results)[:500]}
+    return {"batch_id": batch.id, "summary": summary, "created": counts, "rows": _public(results)[:500]}
+
+
+@router.get("/import/history")
+def import_history(page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db)):
+    st = select(ImportBatch)
+    total = db.scalar(select(func.count()).select_from(st.subquery()))
+    rows = db.scalars(st.order_by(ImportBatch.id.desc()).offset((page - 1) * size).limit(size)).all()
+    return Page(items=[{"id": b.id, "filename": b.filename, "admin": b.admin_name, "policy": b.policy, "status": b.status, "counts": b.counts,
+                        "created_at": b.created_at, "undone_at": b.undone_at} for b in rows], total=total, page=page, size=size)
+
+
+@router.post("/import/{batch_id:int}/undo")
+def import_undo(batch_id: int, request: Request, db: Session = Depends(get_db), admin: User = Depends(admin_user)):
+    """Reverses a whole batch: new questions are removed (students' past results keep their own snapshot), updated ones are restored,
+    and subjects/units the batch created are archived when nothing else uses them."""
+    b = db.get(ImportBatch, batch_id)
+    if not b:
+        raise err(404, "not_found", "Import not found.")
+    if b.status == "undone":
+        raise err(409, "already_undone", "This import was already undone.")
+    removed = restored = 0
+    for it in reversed(b.items):
+        if it["op"] == "create":
+            q = db.get(Question, it["qid"])
+            if q and q.deleted_at is None:
+                q.deleted_at, q.status = utcnow(), PublishStatus.archived
+                removed += 1
+        elif it["op"] == "update":
+            q = _get(db, it["qid"])
+            bf = it["before"]
+            q.text, q.text_key, q.explanation, q.image_url = bf["text"], qkey(bf["text"]), bf["explanation"], bf["image_url"]
+            q.difficulty = Difficulty(bf["difficulty"]) if bf["difficulty"] else None
+            _apply_options(q, [(o["text"], o["is_correct"]) for o in bf["options"]])
+            q.version += 1
+            restored += 1
+        elif it["op"] == "unit":
+            db.flush()
+            u = db.get(Unit, it["id"])
+            if u and not db.scalar(select(func.count()).select_from(Question).where(Question.unit_id == u.id, Question.deleted_at.is_(None))):
+                u.archived_at = utcnow()
+        elif it["op"] == "subject":
+            db.flush()
+            sb = db.get(Subject, it["id"])
+            if sb and not db.scalar(select(func.count()).select_from(Unit).where(Unit.subject_id == sb.id, Unit.archived_at.is_(None))):
+                sb.archived_at = utcnow()
+    b.status, b.undone_at = "undone", utcnow()
+    audit(db, admin, "question.import_undo", "import_batch", b.id, {"removed": removed, "restored": restored}, request)
+    db.commit()
+    return {"removed": removed, "restored": restored}
 
 
 # ------------------------------------------------------------------ item routes (after the fixed paths above)

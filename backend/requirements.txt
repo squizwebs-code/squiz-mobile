@@ -3,11 +3,9 @@ uvicorn[standard]==0.53.0
 SQLAlchemy==2.1.4
 alembic==1.20.0
 psycopg2-binary==2.9.13
-psycopg[binary]
 pydantic==2.13.5
 pydantic-settings==2.16.0
 argon2-cffi==25.1.0
 PyJWT==2.14.0
-python-multipart==0.0.9
-pandas
-openpyxl
+python-multipart==0.0.32
+openpyxl==3.1.5

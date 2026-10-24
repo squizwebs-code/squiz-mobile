@@ -20,13 +20,15 @@ void main() {
     await t.tap(find.text('Create account').last);
     await t.pump();
     expect(find.text('Enter your full name'), findsOneWidget);
-    expect(find.text('At least 8 characters'), findsOneWidget);
+    expect(find.text('At least 6 characters'), findsOneWidget);
   });
 
   test('validators', () {
     expect(validatePhone('0911223344'), isNull);
     expect(validatePhone('12'), isNotNull);
-    expect(validatePassword('abcdefgh'), isNotNull);
-    expect(validatePassword('abcdefg1'), isNull);
+    expect(validatePassword('abcde'), isNotNull);
+    expect(validatePassword('abcdef'), isNull); // 6 characters of any kind is enough
+    expect(validatePassword('      '), isNull);
+    expect(validateUsername('ab'), isNotNull);
   });
 }

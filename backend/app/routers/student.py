@@ -37,6 +37,12 @@ def update_me(body: ProfileUpdate, db: Session = Depends(get_db), user: User = D
         if not db.scalar(select(Grade.id).where(Grade.number == body.selected_grade, Grade.published.is_(True))):
             raise err(404, "grade_not_found", "That grade is not available.")
         user.selected_grade = body.selected_grade
+    if body.selected_track is not None:
+        user.selected_track = None if body.selected_track == "all" else body.selected_track
+    if body.username is not None and body.username != user.username:
+        if db.scalar(select(User.id).where(User.username == body.username, User.id != user.id)):
+            raise err(409, "username_taken", "That username is already taken.")
+        user.username = body.username
     db.commit()
     return user
 

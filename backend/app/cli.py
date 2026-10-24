@@ -15,9 +15,13 @@ from sqlalchemy import func, select
 
 from .db import session_factory
 from .models import (AnswerOption, Grade, GradeSubject, PublishStatus, Question, Role, Subject, Unit, User)
-from .phone import PhoneError, name_key, normalize_phone
+from .phone import PhoneError, name_key, normalize_phone, normalize_username
 from .routers.admin_questions import qkey
 from .security import hash_password, password_problem
+
+
+# Ethiopian Matric streams. Subjects not listed here are open to both streams.
+SUBJECT_TRACK = {"physics": "natural", "chemistry": "natural", "biology": "natural", "geography": "social", "history": "social", "economics": "social"}
 
 
 def _db():
@@ -27,6 +31,7 @@ def _db():
 def create_admin(args) -> int:
     name = os.environ.get("ADMIN_FULL_NAME") or input("Administrator full name: ").strip()
     phone_raw = os.environ.get("ADMIN_PHONE") or input("Administrator phone number: ").strip()
+    uname_raw = os.environ.get("ADMIN_USERNAME") or input("Administrator username: ").strip()
     pw = os.environ.get("ADMIN_PASSWORD")
     if not pw:
         pw = getpass.getpass("Password: ")
@@ -37,6 +42,11 @@ def create_admin(args) -> int:
         phone = normalize_phone(phone_raw)
     except PhoneError as e:
         print(f"Invalid phone number: {e}", file=sys.stderr)
+        return 1
+    try:
+        username = normalize_username(uname_raw)
+    except ValueError as e:
+        print(f"Invalid username: {e}", file=sys.stderr)
         return 1
     problem = password_problem(pw)
     if problem or len(pw) < 10:
@@ -49,9 +59,15 @@ def create_admin(args) -> int:
     if db.scalar(select(User.id).where(User.phone == phone)):
         print("A user with this phone number already exists. Nothing was changed.", file=sys.stderr)
         return 1
-    db.add(User(full_name=" ".join(name.split()), name_key=name_key(name), phone=phone, password_hash=hash_password(pw), role=Role.admin))
+    if db.scalar(select(User.id).where(User.username == username)):
+        print("That username is already taken. Nothing was changed.", file=sys.stderr)
+        return 1
+    owner = db.scalar(select(User).where(User.is_owner.is_(True)))
+    # The first administrator created here is the owner. Later ones created here are promoted by the owner.
+    db.add(User(full_name=" ".join(name.split()), username=username, name_key=name_key(name), phone=phone, password_hash=hash_password(pw),
+                role=Role.admin, is_owner=owner is None, promoted_by_id=owner.id if owner else None))
     db.commit()
-    print(f"Administrator created for {phone}.")
+    print(f"{'Owner' if owner is None else 'Administrator'} account created for {phone} (username: {username}).")
     return 0
 
 
@@ -83,7 +99,8 @@ def import_bank(args) -> int:
         targets = [u["grade"]] if u["grade"] else [9, 10, 11, 12]      # "all grades" quick checks are attached to every grade
         sub = subjects.get(u["subject"])
         if sub is None:
-            sub = Subject(key=u["subject"], name=names.get(u["subject"], u["subject"].title()), icon=u["subject"], published=True)
+            sub = Subject(key=u["subject"], name=names.get(u["subject"], u["subject"].title()), icon=u["subject"], published=True,
+                          track=SUBJECT_TRACK.get(u["subject"], "all"))
             db.add(sub)
             db.flush()
             subjects[sub.key] = sub

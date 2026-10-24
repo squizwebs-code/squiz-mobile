@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'brand.dart';
 
 /// Extra colours that do not exist in Material's ColorScheme.

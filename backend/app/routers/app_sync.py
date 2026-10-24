@@ -52,13 +52,13 @@ def bank(request: Request, response: Response, db: Session = Depends(get_db), _:
         if not qs:
             continue
         sub = sub_rows[u.subject_id]
-        subjects[sub.key] = sub.name
+        subjects[sub.key] = sub
         no = 0
         if u.kind == "unit":
             counters[(u.grade_id, u.subject_id)] = counters.get((u.grade_id, u.subject_id), 0) + 1
             no = counters[(u.grade_id, u.subject_id)]
         units.append({"id": f"u{u.id}", "grade": grades[u.grade_id], "subject": sub.key, "no": no, "title": u.title, "kind": u.kind, "qs": qs})
-    body = {"version": 2, "generated": utcnow().date().isoformat(), "subjects": [{"id": k, "name": v} for k, v in subjects.items()], "units": units}
+    body = {"version": 2, "generated": utcnow().date().isoformat(), "subjects": [{"id": k, "name": v.name, "t": v.track} for k, v in sorted(subjects.items(), key=lambda kv: (kv[1].position, kv[1].name))], "units": units}
     payload = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
     etag = '"' + hashlib.sha256(payload.encode()).hexdigest()[:24] + '"'
     if request.headers.get("if-none-match") == etag:

@@ -6,61 +6,79 @@ from app.models import Role, User
 from tests.conftest import STUDENT_PW, _h, register
 
 
+def _reg(client, **kw):
+    body = {"full_name": "Abebe Kebede", "username": "abebe_k", "phone": "0912345678", "password": STUDENT_PW, "confirm_password": STUDENT_PW, **kw}
+    return client.post("/auth/register", json=body)
+
+
 def test_phone_normalisation_and_duplicates(client, grades):
     t = register(client, phone="0912 345 678")
     assert t["user"]["phone"] == "+251912345678"
-    for variant in ("+251912345678", "251912345678", "912345678", "09-12-345-678", "00251912345678"):
-        r = client.post("/auth/register", json={"full_name": "Other Person", "phone": variant, "password": STUDENT_PW, "confirm_password": STUDENT_PW})
+    for i, variant in enumerate(("+251912345678", "251912345678", "912345678", "09-12-345-678", "00251912345678")):
+        r = _reg(client, full_name="Other Person", username=f"other{i}", phone=variant)
         assert r.status_code == 409 and r.json()["error"]["code"] == "phone_taken", variant
 
 
 def test_register_validation_messages(client, grades):
-    def go(**kw):
-        body = {"full_name": "Abebe Kebede", "phone": "0912345678", "password": STUDENT_PW, "confirm_password": STUDENT_PW, **kw}
-        return client.post("/auth/register", json=body)
-    assert "at least 8" in go(password="Ab1", confirm_password="Ab1").json()["error"]["message"]
-    assert "letter and one number" in go(password="abcdefgh", confirm_password="abcdefgh").json()["error"]["message"]
-    assert "do not match" in go(confirm_password="Different123").json()["error"]["message"]
-    assert go(phone="12345").status_code == 422
-    assert go(phone="abc").status_code == 422
-    assert go(full_name="   ").status_code == 422
-    assert go(full_name="A").status_code == 422
-    assert go().status_code == 201
+    assert "at least 6" in _reg(client, password="Ab1", confirm_password="Ab1").json()["error"]["message"]
+    assert "do not match" in _reg(client, confirm_password="Different123").json()["error"]["message"]
+    assert _reg(client, phone="12345").status_code == 422
+    assert _reg(client, phone="abc").status_code == 422
+    assert _reg(client, full_name="   ").status_code == 422
+    assert _reg(client, full_name="A").status_code == 422
+    for bad in ("ab", "has space", "bad!char", "12345678", "x" * 31):
+        assert _reg(client, username=bad).status_code == 422, bad
+    assert _reg(client).status_code == 201
+
+
+def test_password_needs_only_six_characters_of_any_kind(client, grades):
+    for i, pw in enumerate(("aaaaaa", "123456", "!!!!!!", "pass word")):
+        r = _reg(client, username=f"pw{i}", phone=f"09{i}1111111", password=pw, confirm_password=pw)
+        assert r.status_code == 201, (pw, r.text)
+        assert client.post("/auth/login", json={"identifier": f"pw{i}", "password": pw}).status_code == 200
+    assert _reg(client, username="short1", phone="0966666666", password="12345", confirm_password="12345").status_code == 422
+
+
+def test_username_is_unique_case_insensitive_and_login_works_with_username_or_phone(client, grades):
+    assert _reg(client, username="Abebe_K").status_code == 201
+    dup = _reg(client, username="abebe_k", phone="0922222222")
+    assert dup.status_code == 409 and dup.json()["error"]["code"] == "username_taken"
+    assert client.get("/auth/username-available", params={"username": "ABEBE_K"}).json()["available"] is False
+    assert client.get("/auth/username-available", params={"username": "free_name"}).json()["available"] is True
+    for ident in ("abebe_k", "  ABEBE_K ", "0912345678", "+251 912 345 678"):
+        r = client.post("/auth/login", json={"identifier": ident, "password": STUDENT_PW})
+        assert r.status_code == 200, ident
+        assert r.json()["user"]["username"] == "abebe_k"
 
 
 def test_role_cannot_be_chosen_at_registration(client, grades, db):
-    r = client.post("/auth/register", json={"full_name": "Sneaky User", "phone": "0922222222", "password": STUDENT_PW, "confirm_password": STUDENT_PW,
-                                            "role": "admin", "is_admin": True})
-    assert r.status_code == 201 and r.json()["user"]["role"] == "student"
+    r = _reg(client, full_name="Sneaky User", username="sneaky", phone="0922222222", role="admin", is_admin=True, is_owner=True)
+    assert r.status_code == 201 and r.json()["user"]["role"] == "student" and r.json()["user"]["is_owner"] is False
     assert client.get("/admin/dashboard", headers=_h(r.json()["access_token"])).status_code == 403
     assert db.query(User).filter(User.role == Role.admin).count() == 0
 
 
-def test_login_by_phone_and_name_and_errors(client, grades):
+def test_login_errors_do_not_reveal_which_part_was_wrong(client, grades):
     register(client)
-    assert client.post("/auth/login", json={"identifier": "0912345678", "password": STUDENT_PW}).status_code == 200
-    assert client.post("/auth/login", json={"identifier": "+251 912 345 678", "password": STUDENT_PW}).status_code == 200
-    assert client.post("/auth/login", json={"identifier": "  abebe   KEBEDE ", "password": STUDENT_PW}).status_code == 200
     bad = client.post("/auth/login", json={"identifier": "0912345678", "password": "wrong-pass1"})
-    unknown = client.post("/auth/login", json={"identifier": "0999999999", "password": "wrong-pass1"})
+    unknown = client.post("/auth/login", json={"identifier": "nobody_here", "password": "wrong-pass1"})
     assert bad.status_code == unknown.status_code == 401
-    assert bad.json() == unknown.json()                      # no account enumeration
+    assert bad.json() == unknown.json()
     body = client.post("/auth/login", json={"identifier": "0912345678", "password": STUDENT_PW}).json()
     assert "password" not in str(body["user"]).lower().replace("must_change_password", "")
+    assert client.post("/auth/login", json={"identifier": "Abebe Kebede", "password": STUDENT_PW}).status_code == 401   # full name no longer signs in
 
 
-def test_duplicate_full_name_requires_phone(client, grades):
-    register(client, name="Abebe Kebede", phone="0911111111")
-    register(client, name="abebe kebede", phone="0922222222")
-    r = client.post("/auth/login", json={"identifier": "Abebe Kebede", "password": STUDENT_PW})
-    assert r.status_code == 409 and r.json()["error"]["code"] == "ambiguous_name"
-    assert client.post("/auth/login", json={"identifier": "0911111111", "password": STUDENT_PW}).status_code == 200
-
-
-def test_admin_cannot_use_student_login_and_vice_versa(client, grades, admin):
+def test_one_login_for_everyone_and_role_is_returned(client, grades, admin):
     from tests.conftest import ADMIN_PW
-    assert client.post("/auth/login", json={"identifier": "0911000000", "password": ADMIN_PW}).status_code == 401
+    a = client.post("/auth/login", json={"identifier": "siteadmin", "password": ADMIN_PW})
+    assert a.status_code == 200 and a.json()["user"]["role"] == "admin" and a.json()["user"]["is_owner"] is True
+    assert client.get("/admin/dashboard", headers=_h(a.json()["access_token"])).status_code == 200
     register(client)
+    s = client.post("/auth/login", json={"identifier": "0912345678", "password": STUDENT_PW}).json()
+    assert s["user"]["role"] == "student"
+    assert client.get("/admin/dashboard", headers=_h(s["access_token"])).status_code == 403
+    # the dedicated admin endpoint (used by the web panel) still refuses students
     assert client.post("/admin/auth/login", json={"identifier": "0912345678", "password": STUDENT_PW}).status_code == 401
 
 

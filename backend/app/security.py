@@ -31,12 +31,11 @@ def needs_rehash(hashed: str) -> bool:
 
 
 def password_problem(pw: str) -> str | None:
-    if len(pw) < 8:
-        return "Password must be at least 8 characters"
+    """Any characters are fine; only the length is checked."""
+    if len(pw) < 6:
+        return "Password must be at least 6 characters"
     if len(pw) > 128:
         return "Password must be at most 128 characters"
-    if not re.search(r"[A-Za-z]", pw) or not re.search(r"\d", pw):
-        return "Password must contain at least one letter and one number"
     return None
 
 

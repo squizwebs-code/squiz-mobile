@@ -2,7 +2,7 @@
    This UI is a convenience: every action is authorised again by the server (role checked on every /admin/* request). */
 (function () {
   'use strict';
-  const API = '';                                  // same origin as the backend
+  const API = '';                                   // same origin as the backend
   const app = document.getElementById('app');
   const S = { access: null, refresh: null, user: null, grades: [], subjects: [] };
 
@@ -21,6 +21,7 @@
   }
   const clear = el => {
     while (el.firstChild) el.removeChild(el.firstChild);
+    // native append() would stringify arrays and null; accept both like h() does
     el.append = (...k) => { for (const c of k.flat(Infinity)) if (c != null && c !== false) Element.prototype.append.call(el, c.nodeType ? c : document.createTextNode(String(c))); };
     return el;
   };
@@ -289,75 +290,13 @@
   /* ---------- settings ---------- */
   routes.settings = async main => {
     const s = await api('GET', '/admin/settings');
-    const admins = await api('GET', '/admin/admins');
-    const act = fn => guard(async () => { await fn(); reload(); });
-
-    const adminRows = admins.map(adm => {
-      const isSelf = S.user && S.user.id === adm.id;
-      return h('tr', null,
-        h('td', null, adm.full_name, adm.is_owner ? h('span', { class: 'badge b-published' }, 'Owner') : null),
-        h('td', null, adm.phone),
-        h('td', null, badge(adm.status)),
-        h('td', null, adm.promoted_by || '–'),
-        h('td', null, fmt(adm.last_active_at)),
-        h('td', { class: 'row' },
-          !isSelf && !adm.is_owner && S.user.is_owner ? h('button', {
-            class: 'danger',
-            onclick: act(async () => {
-              if (await confirmDialog('Revoke administrator?', `Are you sure you want to strip admin privileges from ${adm.full_name}?`, 'Revoke', true)) {
-                await api('DELETE', `/admin/admins/${adm.id}`);
-                toast('Administrator privileges revoked');
-              }
-            })
-          }, 'Revoke') : null
-        )
-      );
-    });
-
-    const newAdminPhone = h('input', { placeholder: 'Phone (+251...)', 'aria-label': 'New admin phone' });
-    const newAdminName = h('input', { placeholder: 'Full Name', 'aria-label': 'New admin name' });
-    const newAdminPassword = h('input', { type: 'password', placeholder: 'Temporary Password', 'aria-label': 'Temporary password' });
-
-    const regCodeBox = h('div', { class: 'card' },
-      h('h2', null, 'Platform Settings'),
-      h('p', { class: 'mute small' }, `Environment: ${s.environment || 'production'} · Database connected successfully.`)
-    );
-
-    clear(main).append(
-      h('h1', null, 'Settings & Governance'),
-      regCodeBox,
-      h('div', { class: 'card' },
-        h('h2', null, 'Administrators'),
-        h('p', { class: 'mute small' }, 'Manage administrators, promotion chains, and owner security protections.'),
-        h('div', { class: 'tw' },
-          h('table', null,
-            h('thead', null, h('tr', null, ['Name', 'Phone', 'Status', 'Promoted By', 'Last Active', 'Actions'].map(x => h('th', null, x)))),
-            h('tbody', null, adminRows)
-          )
-        ),
-        S.user.is_owner ? h('div', { style: 'margin-top: 1.5rem;' },
-          h('h3', null, 'Promote or Register New Administrator'),
-          h('div', { class: 'row' }, newAdminPhone, newAdminName, newAdminPassword,
-            h('button', {
-              class: 'primary',
-              onclick: act(async () => {
-                if (!newAdminPhone.value || !newAdminName.value || !newAdminPassword.value) {
-                  return toast('Please fill in all fields');
-                }
-                await api('POST', '/admin/admins', {
-                  phone: newAdminPhone.value.trim(),
-                  full_name: newAdminName.value.trim(),
-                  password: newAdminPassword.value
-                });
-                toast('New administrator added successfully');
-              })
-            }, 'Add Admin')
-          )
-        ) : null
-      )
-    );
+    const name = h('input', { value: s.app_name || '' }), tag = h('input', { value: s.tagline || '' }), dg = sel([['', 'None'], ...S.grades.map(g => [g.number, g.name])], s.default_grade || '', () => { });
+    const an = h('input', { type: 'checkbox', id: 'an', checked: s.allow_name_change !== false });
+    clear(main).append(h('h1', null, 'System settings'), h('div', { class: 'card' }, field('App name', name), field('Tagline', tag), field('Default grade for new students', dg),
+      h('div', { class: 'row' }, an, h('label', { for: 'an' }, 'Students may change their own name')),
+      h('p', null, h('button', { class: 'primary', onclick: guard(async () => { const b = { app_name: name.value, tagline: tag.value, allow_name_change: an.checked }; if (dg.value) b.default_grade = +dg.value; await api('PUT', '/admin/settings', b); toast('Settings saved'); }) }, 'Save settings'))));
   };
 
-  location.hash ? render() : (location.hash = '#/dashboard', render());
   window.addEventListener('hashchange', render);
+  render();
 })();

@@ -28,7 +28,8 @@ def public_config(db: Session = Depends(get_db)):
     """Public: branding and default grade, used by the splash/onboarding screens."""
     row = db.get(AppSetting, "app")
     v = row.value if row else {}
-    return {"app_name": v.get("app_name", "SQUIZ"), "tagline": v.get("tagline", "Smart Quiz and Learning"), "default_grade": v.get("default_grade")}
+    return {"app_name": v.get("app_name", "SQUIZ"), "tagline": v.get("tagline", "Smart Quiz and Learning"), "default_grade": v.get("default_grade"),
+            "exam_name": v.get("exam_name"), "exam_date": v.get("exam_date")}
 
 
 @router.get("/grades", response_model=list[GradeOut])

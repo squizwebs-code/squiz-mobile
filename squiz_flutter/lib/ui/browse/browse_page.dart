@@ -7,8 +7,6 @@ import '../app_scope.dart';
 import '../quiz/launcher.dart';
 import '../widgets/common.dart';
 import 'subject_page.dart';
-import '../../data/models.dart';
-import '../../state/app_state.dart';
 
 class BrowsePage extends StatefulWidget {
   const BrowsePage({super.key});

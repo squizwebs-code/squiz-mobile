@@ -40,3 +40,16 @@ def looks_like_phone(raw: str) -> bool:
 
 def name_key(name: str) -> str:
     return " ".join((name or "").split()).casefold()
+
+
+USERNAME_RE = re.compile(r"[A-Za-z0-9_.]{3,30}")
+
+
+def normalize_username(raw: str) -> str:
+    """Usernames are case-insensitive: stored lower-case. Letters, digits, underscore and dot; 3-30 characters."""
+    v = (raw or "").strip()
+    if not USERNAME_RE.fullmatch(v):
+        raise ValueError("Username must be 3-30 characters: letters, numbers, underscore or dot")
+    if v.isdigit():
+        raise ValueError("Username cannot be only digits (it could be mistaken for a phone number)")
+    return v.lower()

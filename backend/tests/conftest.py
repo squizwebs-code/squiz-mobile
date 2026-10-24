@@ -34,7 +34,7 @@ def _schema():
 def _clean():
     ratelimit.reset()
     with engine().begin() as c:
-        c.execute(text("TRUNCATE users, grades, subjects, app_settings, audit_logs RESTART IDENTITY CASCADE"))
+        c.execute(text("TRUNCATE users, grades, subjects, app_settings, audit_logs, import_batches, announcements, question_reports RESTART IDENTITY CASCADE"))
     yield
 
 
@@ -60,7 +60,8 @@ def grades(db):
 
 @pytest.fixture
 def admin(db):
-    u = User(full_name="Site Admin", name_key=name_key("Site Admin"), phone=normalize_phone("0911000000"), password_hash=hash_password(ADMIN_PW), role=Role.admin)
+    u = User(full_name="Site Admin", username="siteadmin", name_key=name_key("Site Admin"), phone=normalize_phone("0911000000"), password_hash=hash_password(ADMIN_PW),
+             role=Role.admin, is_owner=True)
     db.add(u)
     db.commit()
     return u
@@ -77,8 +78,9 @@ def admin_h(client, admin, grades):
     return _h(r.json()["access_token"])
 
 
-def register(client, name="Abebe Kebede", phone="0912345678", pw=STUDENT_PW):
-    r = client.post("/auth/register", json={"full_name": name, "phone": phone, "password": pw, "confirm_password": pw})
+def register(client, name="Abebe Kebede", phone="0912345678", pw=STUDENT_PW, username=None):
+    username = username or "u" + "".join(ch for ch in phone if ch.isdigit())[-9:]
+    r = client.post("/auth/register", json={"full_name": name, "username": username, "phone": phone, "password": pw, "confirm_password": pw})
     assert r.status_code == 201, r.text
     return r.json()
 
